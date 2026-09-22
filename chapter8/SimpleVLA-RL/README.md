@@ -42,6 +42,8 @@
 
 ### 📖 项目概述
 
+<a id="核心创新"></a>
+
 ### 本项目采用的方法
 
 SimpleVLA-RL 是一个专为 VLA 模型设计的高效强化学习框架,具有以下创新特点:
@@ -2086,6 +2088,3 @@ Also, please cite the RoboTwin 2.0 benchmark:
 ```
 
 ---
-
-<!-- Existing chapter links remain valid after heading edits. -->
-<a id="核心创新"></a>

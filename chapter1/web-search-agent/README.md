@@ -8,6 +8,8 @@
 
 <a id="learning-0"></a>
 
+<a id="中文"></a>
+
 ## 理解问题与方法
 
 用户问题进入对话后，模型可以提出工具调用。程序执行工具，把结果作为新的消息交回模型，随后开始下一轮。离线演示使用预先写好的轨迹，让你先看清控制流；真正联网时，搜索结果由 Moonshot 的 Formula 服务返回。
@@ -624,6 +626,3 @@ Includes:
 - [Moonshot AI platform](https://platform.moonshot.ai/)
 
 ---
-
-<!-- Existing chapter links remain valid after heading edits. -->
-<a id="中文"></a>
