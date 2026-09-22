@@ -3,7 +3,6 @@ from types import SimpleNamespace
 import sys
 
 import pytest
-import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from homepage_index import MARKER, chapter_order, on_page_markdown, read_headings, render_cards
@@ -12,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_every_homepage_uses_current_manuscript_titles_and_valid_links():
+    # The lightweight registry CI does not install site-build dependencies.
+    yaml = pytest.importorskip("yaml")
     config = yaml.load((ROOT / 'mkdocs.yml').read_text(), Loader=yaml.BaseLoader)
     config['config_file_path'] = str(ROOT / 'mkdocs.yml')
     for home in [ROOT / 'index.md', *ROOT.glob('index.*.md')]:
