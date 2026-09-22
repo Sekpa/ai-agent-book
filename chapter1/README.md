@@ -4,21 +4,22 @@
 
 ← [返回主目录](../README.md) · 📖 [读本章正文](../book/chapter1.md)
 
-逐项正文验收、真实 API 状态与证据路径见
-[EXPERIMENT_LEDGER.md](EXPERIMENT_LEDGER.md)。其中实验 1-1 的五臂正式运行已完成，
-但“去掉 reasoning 必然退化”没有在该次运行中复现；实验 1-3 已按作者批准的多提供商
-政策验收：官方 OpenAI 路径保留但仍受配额阻塞，阿里云百炼 qwen3.7-plus 的
-Responses API（hosted web_search + code_interpreter）实测通过全部验收门。
+## 从哪里开始
 
-## 如何阅读实验
+本章实验帮助你看清两件事：模型每轮能看到哪些信息，以及它如何调用工具、读取结果并继续回答。
+第一次阅读可以按下面的顺序进行：
 
-正文用短 skeleton 解释控制流；实验目录承载完整 SDK 适配、日志和验收。无需逐行读完每个文件，建议按三层推进：
+1. 打开 [web-search-agent](web-search-agent/)，先运行无需 API Key 的离线演示。
+   观察一次“思考 → 调用工具 → 读取结果 → 回答”的过程。演示中的搜索结果是预先编写的。
+2. 打开 [context](context/)，配置一个模型提供商，先运行单个任务，再移除一种上下文信息做对照。
+   比较工具调用和最终答案，看看变化发生在哪一步。
+3. 跑通后再读代码：从 `main.py` 找入口，在 `agent.py` 中跟踪消息如何组装、工具结果如何返回。
+   提供商适配、图表和测试可以稍后阅读。
 
-- **Starter**：先读目标、最小命令和验收条件，推荐从 [context](context/) 开始；
-- **Builder**：沿 main.py 的入口追踪上下文、工具调用和消融变量，再看 [web-search-agent](web-search-agent/) 的多轮循环；
-- **Maintainer**：最后阅读 tests/、证据 manifest、失败回退和 provider adapter。
-
-首次阅读可跳过凭据加载、展示层和 provider 兼容代码；当你要复现实验数字时，再回到 [验收台账](EXPERIMENT_LEDGER.md)。
+正文中的简化代码用于解释流程，实验目录中的代码负责实际运行。
+如果你要核对书中的实验结论，再查看 [实验记录](EXPERIMENT_LEDGER.md)：其中列出了运行条件、
+服务可用性和结果文件。例如，实验 1-1 的一次五组对照没有观察到“去掉推理内容必然退化”，
+因此不要把预期现象当作每次都能复现的结论。
 
 ## 配套项目
 

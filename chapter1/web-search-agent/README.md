@@ -7,6 +7,270 @@
 
 ---
 
+[中文说明](#中文) · [English](#english)
+
+## 先看一次完整流程
+
+这个实验展示模型如何决定搜索、读取搜索结果，再回答问题。先运行离线演示，不需要 API Key：
+
+```bash
+# 在仓库根目录安装依赖并激活环境
+uv sync --locked --extra ch1
+source .venv/bin/activate
+cd chapter1/web-search-agent
+python main.py --provider offline-demo --output demo.json
+```
+
+Windows 的环境激活方式见下文“快速开始”。终端会依次展示思考、工具调用、观察和最终答案，
+`demo.json` 会保存 `question`、`trace` 和 `answer`。其中的搜索内容是预先编写的，
+用来解释程序流程；看到它正常输出，不代表真实搜索服务已经连通。
+
+读代码时，从 `main.py` 的 `main()` 开始，找到 `offline-demo` 分支和 `run_offline_demo()`。
+理解这条轨迹后，再按中文说明配置 Moonshot API Key，运行真正的联网问答。
+
+## 中文
+
+### 这个实验做什么
+
+对应书中**实验 1-2 ★：Kimi K3 原生 Agent 能力**。模型收到问题后，可以调用搜索工具，
+读取结果，再决定继续搜索还是回答。这个过程就是本章介绍的 ReAct 循环。
+
+### 联网时发生了什么
+
+当前代码通过 Moonshot 的 Formula 接口使用 `web_search`。你不需要先读懂全部接口，
+只需跟踪三步：
+
+1. 程序向服务端获取搜索工具的定义，并把定义交给模型。
+2. 模型决定搜索时，程序把它给出的工具名和参数交给 Formula 执行。
+3. 工具执行成功后，程序把结果放回对话，让模型继续处理问题。
+
+搜索在 Moonshot 服务端执行。遇到错误时，先看日志区分是获取工具定义、执行搜索还是模型请求失败。
+服务的使用条件见 [官方工具说明](https://platform.kimi.ai/docs/guide/use-official-tools)。
+如果暂时无法联网，可以继续用上面的离线演示学习流程。
+
+### 快速开始
+
+#### 1. 安装依赖
+
+```bash
+# 推荐在仓库根目录使用统一的第 1 章环境
+uv sync --locked --extra ch1
+
+# 切换目录前先激活环境：
+# macOS/Linux：
+source .venv/bin/activate
+# Windows PowerShell：.venv\Scripts\Activate.ps1
+# Windows cmd：.venv\Scripts\activate.bat
+
+# 未安装 uv 时可用 pip 兜底：
+# python -m pip install -e ".[ch1]"
+
+# 进入本实验目录，后续命令都在这里运行
+cd chapter1/web-search-agent
+
+# 迁移期间仍支持单项目兼容路径：
+# python -m pip install -r requirements.txt
+```
+
+#### 2. 配置 API Key
+
+从 [Moonshot AI 平台](https://platform.moonshot.ai/) 获取 API Key，然后设置环境变量：
+
+```bash
+export MOONSHOT_API_KEY='your-api-key-here'
+```
+
+或创建 `.env` 文件：
+
+```env
+MOONSHOT_API_KEY=your-api-key-here
+```
+
+**注意**: 为了向后兼容，系统也支持使用 `KIMI_API_KEY` 环境变量。
+
+**通用兜底（OpenRouter）**: 若未设置 `MOONSHOT_API_KEY`/`KIMI_API_KEY` 但设置了 `OPENROUTER_API_KEY`，请求会自动改走 OpenRouter。请求的模型 id 会被映射为 OpenRouter 等价 id（默认的 `kimi-k3` 会变成 `moonshotai/kimi-k2.6`）；仅当**未指定模型**时才使用 `OPENROUTER_MODEL`（默认 `openai/gpt-5.6-luna`）。**重要限制**：Kimi 内置的 `web_search` 工具是 Moonshot 专有能力，在 OpenRouter 上不可用——因此兜底模式下模型仅凭自身知识作答，**没有实时联网搜索**。如需真正的联网搜索，请使用 Moonshot 主 key。
+
+#### 3. 运行 Agent
+
+`main.py` 提供了完整的命令行接口（中文帮助）。查看全部参数：
+
+```bash
+python main.py --help
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `query` | 要提问的问题（位置参数）；省略则进入交互模式 | 无 |
+| `--provider` | 搜索后端：`kimi`（调用内置 `web_search`，需 API Key）/ `offline-demo`（离线示例轨迹） | `kimi` |
+| `--model` | 模型名称 | `kimi-k3` |
+| `--max-steps` | 最大 ReAct 迭代次数 | `5` |
+| `--base-url` | API 基础 URL | `https://api.moonshot.cn/v1` |
+| `--api-key` | Kimi API Key（默认读环境变量） | 环境变量 |
+| `--output`, `-o` | 将问题、ReAct 轨迹与答案保存为 JSON | 无 |
+| `--quiet` | 不实时打印 ReAct 轨迹 | 打印 |
+
+**离线演示 ReAct 循环**（无需 API Key，回放示例轨迹，直观展示“想→做→看”）：
+
+```bash
+python main.py --provider offline-demo
+```
+
+**交互模式**（每次提问独立，`search_and_answer` 会重置对话历史，无跨问题上下文）：
+
+```bash
+python main.py
+```
+
+**单次问答**（运行时逐步打印思考/行动/观察轨迹）：
+
+```bash
+python main.py "2024年诺贝尔物理学奖获得者是谁？"
+python main.py "比特币现价" --max-steps 3 --output result.json
+```
+
+**快速体验**（引导式交互）：
+
+```bash
+python quickstart.py
+```
+
+**高级示例**：
+
+```bash
+python examples.py
+```
+
+> 运行时会实时打印 **ReAct 轨迹**：💭 思考 → 🔧 行动（调用 `web_search`）→ 👀 观察（搜索结果）→ ✅ 最终答案，对应本章讲的“想→做→看”循环。`agent.get_trace()` 可获取结构化轨迹，`--output` 可将其存为 JSON。
+
+### 使用示例
+
+#### 基础使用
+
+```python
+from agent import WebSearchAgent
+from config import Config
+
+# 创建 Agent
+agent = WebSearchAgent(api_key=Config.get_api_key())
+
+# 提问并获取答案
+question = "Python 3.12 有哪些新特性？"
+answer = agent.search_and_answer(question)
+print(answer)
+```
+
+#### 高级功能
+
+```bash
+python examples.py
+```
+
+包含：
+
+- **批量搜索**：同时搜索多个问题
+- **带上下文搜索**：提供背景信息进行更精准的搜索
+- **比较搜索**：搜索并比较多个项目
+- **事实核查**：验证陈述的真实性
+- **研究助手**：深度研究某个主题
+
+### 核心组件
+
+#### `agent.py` — 核心 Agent 实现
+
+- `WebSearchAgent`: 主要的 Agent 类
+- `search_and_answer()`: 执行 ReAct 循环并生成答案的主方法
+- `get_trace()`: 返回上一次运行的结构化 ReAct 轨迹（思考/行动/观察/最终答案）
+- `_chat()`: 与 Kimi API 进行对话交互
+- `_get_system_prompt()`: 获取系统提示，定义 Agent 行为
+- `_get_tools()`: 定义可用的工具（`web_search`）
+- `search_impl()`: 搜索实现的抽象层，便于扩展
+- `format_trace_step()`: 将一条轨迹步骤渲染为可读文本
+- `run_offline_demo()`: 离线回放示例轨迹，无需 API Key 即可演示 ReAct 循环
+
+#### `config.py` — 配置管理
+
+- API 配置
+- 模型选择
+- 搜索参数设置
+
+#### `main.py` — 主程序入口
+
+- `build_parser()`: argparse 命令行接口（中文帮助，见 `--help`）
+- `run_interactive_mode()`: 交互式对话模式
+- `run_single_question()`: 单次问答模式
+- 离线演示模式（`--provider offline-demo`）与 JSON 结果输出（`--output`）
+- 会话管理
+
+#### `quickstart.py` — 快速体验脚本
+
+- `demo_search()`: 演示搜索功能
+- `interactive_mode()`: 简化的交互模式
+- 彩色输出和用户引导
+- API Key 配置检查
+
+#### `examples.py` — 高级示例
+
+- `AdvancedWebSearchAgent`: 扩展功能的 Agent 类
+- `batch_search()`: 批量处理多个问题
+- `search_with_context()`: 带上下文的搜索
+- `comparative_search()`: 比较多个项目
+- `fact_check()`: 事实验证功能
+- `example_research_assistant()`: 深度研究示例
+
+### 配置选项
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `MOONSHOT_API_KEY` | Moonshot AI API 密钥 | 必填 |
+| `KIMI_API_KEY` | 旧版 API 密钥变量名（向后兼容） | 可选 |
+| `KIMI_BASE_URL` | API 基础 URL | `https://api.moonshot.cn/v1` |
+| `DEFAULT_MODEL` | 默认模型 | `kimi-k3` |
+| `MAX_SEARCH_ITERATIONS` | 最大搜索迭代次数（Config 中设置） | 5 |
+| `SEARCH_TIMEOUT` | 单次请求超时（秒），同时作用于 Formula 工具调用与 chat completion | 180 |
+| `temperature` | 控制生成内容的创造性 | 0.6 |
+
+### 怎样检查答案
+
+一次联网问答完成后，检查轨迹里是否实际调用了 `web_search`，工具是否返回成功，以及最终答案是否使用了
+这些结果。每次提问都会重置对话历史，所以上一个问题中的信息不会自动保留到下一个问题。
+搜索成功也不保证答案完整或准确；可以对照结果来源检查模型是否遗漏或误读了信息。
+
+### 开发计划（尚未实现）
+
+- [ ] 添加异步搜索支持（使用 aiohttp）
+- [ ] 实现搜索结果缓存机制
+- [ ] 支持更多搜索后端（通过 `search_impl` 扩展）
+- [ ] 支持多语言搜索
+- [ ] 添加搜索结果质量评分
+- [ ] 实现搜索历史记录
+- [ ] 集成重试机制（使用 tenacity）
+- [ ] 优化长对话的上下文管理
+
+### 注意事项
+
+1. **API 限制**: 请注意 Kimi API 的调用限制和配额
+2. **搜索质量**: 搜索结果质量依赖于 Kimi 的搜索能力
+3. **响应时间**: 网络搜索本身需要时间，而 `kimi-k3` 以 `reasoning_effort=max` 运行，单次调用常需一到数分钟，因此 `SEARCH_TIMEOUT` 默认为 180 秒
+4. **速率限制**: 遇到 429 时 SDK 会自动重试，重试若把超时预算耗完，最终报出的是超时而不是速率限制；调大 `SEARCH_TIMEOUT` 之前，先看日志里有没有 `429`
+5. **内容准确性**: Agent 会尽力提供准确信息，但建议对重要信息进行二次验证
+
+### 使用建议
+
+1. **明确问题**: 提供清晰、具体的问题以获得更好的答案
+2. **提供上下文**: 必要时提供背景信息帮助 Agent 理解
+3. **迭代优化**: 如果答案不满意，可以提供更多细节重新提问
+4. **合理期望**: Agent 基于搜索结果回答，可能无法回答所有问题
+
+### 相关链接
+
+- [Kimi API 文档](https://platform.moonshot.ai/docs)
+- [Web 搜索工具文档](https://platform.moonshot.ai/docs/guide/use-web-search)
+- [Moonshot AI 平台](https://platform.moonshot.ai/)
+
+---
+
+---
+
 ## English
 
 ### Overview
@@ -299,290 +563,12 @@ Includes:
 
 ---
 
-## 中文
-
-### 概述
-
-本项目实现了一个自主式 AI Agent，利用 Kimi（Moonshot AI）的内置 Web 搜索工具（search / crawl 能力），能够：
-
-- **智能理解**：分析用户问题，识别关键信息需求
-- **自动搜索**：使用 Kimi 内置 `$web_search` 工具获取实时网络信息
-- **迭代搜索**：可多次调用搜索以获取更全面的信息
-- **智能总结**：综合多源信息，生成准确、全面的答案
-
-对应书中**实验 1-2 ★：Kimi K3 原生 Agent 能力**，体现“模型即 Agent”与 ReAct（想 → 做 → 看）循环。
-
-### Kimi 联网搜索服务状态
-
-本示例依赖 Kimi 托管的 `$web_search` 服务。本仓库只会将内置工具返回的参数原样传回
-Kimi，并不会在本地执行搜索引擎。
-
-Kimi 的[联网搜索官方文档](https://platform.kimi.ai/docs/guide/use-web-search)
-目前注明：该服务正在更新，近期不建议使用，并请开发者关注后续文档更新。排查本示例前，
-请先查看该页面确认最新服务状态。
-
-如果工具观察结果只有 `search_id`，例如
-`{"search_result": {"search_id": "..."}}`，却没有实际搜索内容：
-
-1. 查看 Kimi 联网搜索文档，确认当前服务状态。
-2. 稍后重试；如果只需查看 ReAct 流程，可运行
-   `python main.py --provider offline-demo`，避免调用托管服务。
-3. 优先考虑外部工具/API 的可用性问题；仅凭这一响应，不能说明 Agent 循环或本地实现有误。
-
-### 架构设计
-
-```mermaid
-graph TD
-    A[用户问题] --> B{Agent 思考}
-    B -->|需要搜索| C[调用 $web_search 工具]
-    C --> D[Kimi 搜索引擎]
-    D --> E[返回搜索结果]
-    E --> F{信息充足?}
-    F -->|否| G[继续调用 $web_search]
-    G --> H[获取更多信息]
-    H --> F
-    F -->|是| I[生成最终答案]
-    B -->|不需要搜索| J[直接回答]
-```
-
-### 快速开始
-
-#### 1. 安装依赖
-
-```bash
-# 推荐在仓库根目录使用统一的第 1 章环境
-uv sync --locked --extra ch1
-
-# 切换目录前先激活环境：
-# macOS/Linux：
-source .venv/bin/activate
-# Windows PowerShell：.venv\Scripts\Activate.ps1
-# Windows cmd：.venv\Scripts\activate.bat
-
-# 未安装 uv 时可用 pip 兜底：
-# python -m pip install -e ".[ch1]"
-
-# 进入本实验目录，后续命令都在这里运行
-cd chapter1/web-search-agent
-
-# 迁移期间仍支持单项目兼容路径：
-# python -m pip install -r requirements.txt
-```
-
-#### 2. 配置 API Key
-
-从 [Moonshot AI 平台](https://platform.moonshot.ai/) 获取 API Key，然后设置环境变量：
-
-```bash
-export MOONSHOT_API_KEY='your-api-key-here'
-```
-
-或创建 `.env` 文件：
-
-```env
-MOONSHOT_API_KEY=your-api-key-here
-```
-
-**注意**: 为了向后兼容，系统也支持使用 `KIMI_API_KEY` 环境变量。
-
-**通用兜底（OpenRouter）**: 若未设置 `MOONSHOT_API_KEY`/`KIMI_API_KEY` 但设置了 `OPENROUTER_API_KEY`，请求会自动改走 OpenRouter。请求的模型 id 会被映射为 OpenRouter 等价 id（默认的 `kimi-k3` 会变成 `moonshotai/kimi-k2.6`）；仅当**未指定模型**时才使用 `OPENROUTER_MODEL`（默认 `openai/gpt-5.6-luna`）。**重要限制**：Kimi 内置的 `$web_search` 工具是 Moonshot 专有能力，在 OpenRouter 上不可用——因此兜底模式下模型仅凭自身知识作答，**没有实时联网搜索**。如需真正的联网搜索，请使用 Moonshot 主 key。
-
-#### 3. 运行 Agent
-
-`main.py` 提供了完整的命令行接口（中文帮助）。查看全部参数：
-
-```bash
-python main.py --help
-```
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `query` | 要提问的问题（位置参数）；省略则进入交互模式 | 无 |
-| `--provider` | 搜索后端：`kimi`（调用内置 `$web_search`，需 API Key）/ `offline-demo`（离线示例轨迹） | `kimi` |
-| `--model` | 模型名称 | `kimi-k3` |
-| `--max-steps` | 最大 ReAct 迭代次数 | `5` |
-| `--base-url` | API 基础 URL | `https://api.moonshot.cn/v1` |
-| `--api-key` | Kimi API Key（默认读环境变量） | 环境变量 |
-| `--output`, `-o` | 将问题、ReAct 轨迹与答案保存为 JSON | 无 |
-| `--quiet` | 不实时打印 ReAct 轨迹 | 打印 |
-
-**离线演示 ReAct 循环**（无需 API Key，回放示例轨迹，直观展示“想→做→看”）：
-
-```bash
-python main.py --provider offline-demo
-```
-
-**交互模式**（每次提问独立，`search_and_answer` 会重置对话历史，无跨问题上下文）：
-
-```bash
-python main.py
-```
-
-**单次问答**（运行时逐步打印思考/行动/观察轨迹）：
-
-```bash
-python main.py "2024年诺贝尔物理学奖获得者是谁？"
-python main.py "比特币现价" --max-steps 3 --output result.json
-```
-
-**快速体验**（引导式交互）：
-
-```bash
-python quickstart.py
-```
-
-**高级示例**：
-
-```bash
-python examples.py
-```
-
-> 运行时会实时打印 **ReAct 轨迹**：💭 思考 → 🔧 行动（调用 `$web_search`）→ 👀 观察（搜索结果）→ ✅ 最终答案，对应本章讲的“想→做→看”循环。`agent.get_trace()` 可获取结构化轨迹，`--output` 可将其存为 JSON。
-
-### 使用示例
-
-#### 基础使用
-
-```python
-from agent import WebSearchAgent
-from config import Config
-
-# 创建 Agent
-agent = WebSearchAgent(api_key=Config.get_api_key())
-
-# 提问并获取答案
-question = "Python 3.12 有哪些新特性？"
-answer = agent.search_and_answer(question)
-print(answer)
-```
-
-#### 高级功能
-
-```bash
-python examples.py
-```
-
-包含：
-
-- **批量搜索**：同时搜索多个问题
-- **带上下文搜索**：提供背景信息进行更精准的搜索
-- **比较搜索**：搜索并比较多个项目
-- **事实核查**：验证陈述的真实性
-- **研究助手**：深度研究某个主题
-
-### 核心组件
-
-#### `agent.py` — 核心 Agent 实现
-
-- `WebSearchAgent`: 主要的 Agent 类
-- `search_and_answer()`: 执行 ReAct 循环并生成答案的主方法
-- `get_trace()`: 返回上一次运行的结构化 ReAct 轨迹（思考/行动/观察/最终答案）
-- `_chat()`: 与 Kimi API 进行对话交互
-- `_get_system_prompt()`: 获取系统提示，定义 Agent 行为
-- `_get_tools()`: 定义可用的工具（`$web_search`）
-- `search_impl()`: 搜索实现的抽象层，便于扩展
-- `format_trace_step()`: 将一条轨迹步骤渲染为可读文本
-- `run_offline_demo()`: 离线回放示例轨迹，无需 API Key 即可演示 ReAct 循环
-
-#### `config.py` — 配置管理
-
-- API 配置
-- 模型选择
-- 搜索参数设置
-
-#### `main.py` — 主程序入口
-
-- `build_parser()`: argparse 命令行接口（中文帮助，见 `--help`）
-- `run_interactive_mode()`: 交互式对话模式
-- `run_single_question()`: 单次问答模式
-- 离线演示模式（`--provider offline-demo`）与 JSON 结果输出（`--output`）
-- 会话管理
-
-#### `quickstart.py` — 快速体验脚本
-
-- `demo_search()`: 演示搜索功能
-- `interactive_mode()`: 简化的交互模式
-- 彩色输出和用户引导
-- API Key 配置检查
-
-#### `examples.py` — 高级示例
-
-- `AdvancedWebSearchAgent`: 扩展功能的 Agent 类
-- `batch_search()`: 批量处理多个问题
-- `search_with_context()`: 带上下文的搜索
-- `comparative_search()`: 比较多个项目
-- `fact_check()`: 事实验证功能
-- `example_research_assistant()`: 深度研究示例
-
-### 配置选项
-
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| `MOONSHOT_API_KEY` | Moonshot AI API 密钥 | 必填 |
-| `KIMI_API_KEY` | 旧版 API 密钥变量名（向后兼容） | 可选 |
-| `KIMI_BASE_URL` | API 基础 URL | `https://api.moonshot.cn/v1` |
-| `DEFAULT_MODEL` | 默认模型 | `kimi-k3` |
-| `MAX_SEARCH_ITERATIONS` | 最大搜索迭代次数（Config 中设置） | 5 |
-| `SEARCH_TIMEOUT` | 单次请求超时（秒），同时作用于 Formula 工具调用与 chat completion | 180 |
-| `temperature` | 控制生成内容的创造性 | 0.6 |
-
-### 技术特点
-
-#### 核心技术
-
-- **Kimi API**: 使用 Moonshot AI 的最新 Kimi K3 模型（`kimi-k3`，原生联网搜索的推理模型）
-- **内置工具调用**: 利用 Kimi 的 `$web_search` 内置函数
-- **迭代式搜索**: 支持多轮搜索直到获得充分信息（最多 5 次迭代）
-- **上下文管理**: 每次提问独立（`search_and_answer` 会重置对话历史，无跨问题记忆）
-- **温度控制**: 支持调整生成内容的创造性（temperature 参数）
-
-#### 优势
-
-- **实时信息**: 获取最新的网络信息
-- **智能理解**: 理解用户意图，精准搜索
-- **结构化输出**: 生成组织良好的答案
-- **可扩展性**: 易于添加新功能和工具
-
-### 开发计划（尚未实现）
-
-- [ ] 添加异步搜索支持（使用 aiohttp）
-- [ ] 实现搜索结果缓存机制
-- [ ] 支持更多搜索后端（通过 `search_impl` 扩展）
-- [ ] 支持多语言搜索
-- [ ] 添加搜索结果质量评分
-- [ ] 实现搜索历史记录
-- [ ] 集成重试机制（使用 tenacity）
-- [ ] 优化长对话的上下文管理
-
-### 注意事项
-
-1. **API 限制**: 请注意 Kimi API 的调用限制和配额
-2. **搜索质量**: 搜索结果质量依赖于 Kimi 的搜索能力
-3. **响应时间**: 网络搜索本身需要时间，而 `kimi-k3` 以 `reasoning_effort=max` 运行，单次调用常需一到数分钟，因此 `SEARCH_TIMEOUT` 默认为 180 秒
-4. **速率限制**: 遇到 429 时 SDK 会自动重试，重试若把超时预算耗完，最终报出的是超时而不是速率限制；调大 `SEARCH_TIMEOUT` 之前，先看日志里有没有 `429`
-5. **内容准确性**: Agent 会尽力提供准确信息，但建议对重要信息进行二次验证
-
-### 使用建议
-
-1. **明确问题**: 提供清晰、具体的问题以获得更好的答案
-2. **提供上下文**: 必要时提供背景信息帮助 Agent 理解
-3. **迭代优化**: 如果答案不满意，可以提供更多细节重新提问
-4. **合理期望**: Agent 基于搜索结果回答，可能无法回答所有问题
-
-### 相关链接
-
-- [Kimi API 文档](https://platform.moonshot.ai/docs)
-- [Web 搜索工具文档](https://platform.moonshot.ai/docs/guide/use-web-search)
-- [Moonshot AI 平台](https://platform.moonshot.ai/)
-
----
-
 ## Notes / 说明
 
-- License: MIT.  
-  许可证：MIT。  
-- Author / 作者: AI Agent 实战训练营；version / 版本: 1.0.0.  
-- Prefer `--provider offline-demo` first if you only want to see the ReAct shape without spending API quota.  
-  若只想先看 ReAct 形态、不消耗配额，优先运行 `--provider offline-demo`。  
-- Live search requires a Moonshot key; OpenRouter fallback has no `$web_search`.  
-  真正联网搜索必须使用 Moonshot Key；OpenRouter 兜底没有 `$web_search`。  
+- License: MIT.
+  许可证：MIT。
+- Author / 作者: AI Agent 实战训练营；version / 版本: 1.0.0.
+- Prefer `--provider offline-demo` first if you only want to see the ReAct shape without spending API quota.
+  若只想先看 ReAct 形态、不消耗配额，优先运行 `--provider offline-demo`。
+- Live search requires a Moonshot key; OpenRouter fallback has no `$web_search`.
+  真正联网搜索必须使用 Moonshot Key；OpenRouter 兜底没有 `$web_search`。
