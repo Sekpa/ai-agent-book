@@ -1,247 +1,30 @@
-# Korean Mistral Model Evaluation Guide
+# 怎样观察持续预训练前后的变化
 
-This guide explains how to use the evaluation script to test your trained Korean Mistral models.
+持续预训练让模型继续接触领域文本，但训练损失下降并不直接说明模型更会回答问题。本练习用固定提示比较两个模型检查点，学习区分文本续写、语言适应与指令遵循。
 
-## Overview
+## 明确比较对象
 
-After running `continued-pretrain.py`, you'll have two saved models:
-- `lora_model_pretrained/` - Model after Korean pretraining (before instruction finetuning)
-- `lora_model/` - Final model after instruction finetuning
+先完成[持续预训练教程](README.md)，确认待比较的模型目录和适配器都已保存。`evaluate_model.py` 提供韩语、英语等少量提示，其中既有类似百科的开头，也有指令式输入。这些例子适合观察行为，不能代替正式的能力评测。
 
-## Quick Start
+比较前记录模型来源、训练数据范围和解码设置。两个检查点应使用相同提示和输出长度；若采用随机采样，还应多次重复，避免把一次生成差异解释为稳定改进。
 
-### Basic Evaluation (Final Finetuned Model)
+## 运行相同提示
 
-```bash
-python evaluate_model.py
-```
-
-This will:
-- Load the final finetuned model from `lora_model/`
-- Run 6 test cases (Korean + English, Wikipedia + Instructions)
-- Use default parameters (max_new_tokens=150)
-
-### Evaluate Pretrained Model (Before SFT)
+在安装好实验依赖、具备模型加载所需显存的环境中，从本目录运行：
 
 ```bash
-python evaluate_model.py --pretrained
+python evaluate_model.py --model_path lora_model --max_new_tokens 128
+python evaluate_model.py --model_path lora_model_pretrained --max_new_tokens 128
 ```
 
-This loads the model after Korean pretraining but before instruction finetuning.
+这里的目录名沿用脚本约定，请先核对其中保存的实际模型。保留两次输出，按提示逐项比较，不要只挑选最流畅的一条展示。
 
-## Command Line Options
+## 读懂生成结果
 
-### Model Selection
+对于百科式提示，观察模型能否自然续写、主题是否连贯、事实是否有依据。对于指令式提示，先判断它是否执行了要求，再判断答案内容。领域表达更自然与指令遵循更好是两个不同的观察维度。
 
-```bash
-# Evaluate the pretrained model
-python evaluate_model.py --pretrained
+如果一个检查点的韩语更流畅，但英语输出或任务遵循变差，应同时记录这些变化。要检验是否存在能力遗忘，需要扩大测试范围，并使用与训练材料分离的样本；不能仅凭几段续写得出普遍结论。
 
-# Evaluate a custom model path
-python evaluate_model.py --model_path path/to/your/model
+继续思考：如果模型只是复述训练中见过的段落，怎样设计新提示来区分记忆与迁移？
 
-# Load in full precision (more memory, higher quality)
-python evaluate_model.py --load_in_4bit False
-```
-
-### Generation Parameters
-
-```bash
-# Generate more tokens
-python evaluate_model.py --max_new_tokens 300
-
-# Use sampling for more creative outputs
-python evaluate_model.py --use_sampling --temperature 0.8 --top_p 0.95
-```
-
-### All Available Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--model_path` | `lora_model` | Path to saved LoRA model |
-| `--pretrained` | `False` | Load pretrained model (before SFT) |
-| `--max_seq_length` | `2048` | Maximum sequence length |
-| `--load_in_4bit` | `True` | Use 4-bit quantization |
-| `--max_new_tokens` | `150` | Maximum tokens to generate |
-| `--use_sampling` | `False` | Enable sampling (vs greedy) |
-| `--temperature` | `0.7` | Sampling temperature (creativity) |
-| `--top_p` | `0.9` | Top-p nucleus sampling |
-
-## Example Use Cases
-
-### Compare Models Side-by-Side
-
-```bash
-# First, test the pretrained model
-python evaluate_model.py --pretrained > results_pretrained.txt
-
-# Then, test the finetuned model
-python evaluate_model.py > results_finetuned.txt
-
-# Compare the outputs
-diff results_pretrained.txt results_finetuned.txt
-```
-
-### Creative vs Deterministic Generation
-
-```bash
-# Deterministic (greedy decoding) - same output every time
-python evaluate_model.py
-
-# Creative (sampling) - different output each time
-python evaluate_model.py --use_sampling --temperature 0.7
-
-# Very creative (higher temperature)
-python evaluate_model.py --use_sampling --temperature 1.0
-
-# More focused (lower temperature)
-python evaluate_model.py --use_sampling --temperature 0.3
-```
-
-### Long-Form Generation
-
-```bash
-# Generate longer responses
-python evaluate_model.py --max_new_tokens 500
-```
-
-## Test Cases
-
-### Evaluation Script (evaluate_model.py)
-Runs 6 test cases on a single model:
-
-1. **Korean Wikipedia Article (Artificial Intelligence)** - Tests encyclopedic writing in Korean
-2. **English Wikipedia Article (Artificial Intelligence)** - Ensures English preservation
-3. **Korean Instruction (Explain Kimchi)** - Tests instruction-following for cultural topics
-4. **English Instruction (Explain Thanksgiving Turkey)** - Tests English instruction-following
-5. **Korean Instruction (Introduce Seoul)** - Tests factual knowledge in Korean
-6. **Korean Instruction (Explain K-pop)** - Tests modern cultural knowledge
-
-### Comparison Script (compare_models.py)
-Runs 5 test cases across 3 models (15 total outputs):
-
-1. **Korean Wikipedia - AI** - Shows Korean capability progression
-2. **English Wikipedia - AI** - Validates English preservation (encyclopedic writing)
-3. **Korean Instruction - Kimchi** - Shows instruction-following improvement
-4. **Korean Instruction - Seoul** - Tests factual accuracy improvement
-5. **English Instruction - Thanksgiving** - Validates English preservation (instruction-following)
-
-The comparison script includes both English Wikipedia AND English Instruction tests to comprehensively validate that English capabilities remain strong throughout all training stages.
-
-## Understanding the Output
-
-### Color Coding
-- 🔵 **Blue**: Loading and setup information
-- 🟡 **Yellow**: Parameters and configuration
-- 🟢 **Green**: Successful operations and output
-- 🔴 **Red**: Errors
-- 🔵 **Cyan**: Prompts and tips
-
-### Evaluation Metrics (Manual)
-
-When evaluating outputs, consider:
-
-1. **Fluency**: Is the Korean grammatically correct?
-2. **Factual Accuracy**: Are the facts correct?
-3. **Instruction Following**: Does it answer the question?
-4. **Coherence**: Does it make logical sense?
-5. **Cultural Appropriateness**: Is cultural information accurate?
-
-## Troubleshooting
-
-### "Model path does not exist"
-Make sure you've run `continued-pretrain.py` first to train and save the models.
-
-### Out of Memory
-Try:
-```bash
-# Use 4-bit quantization
-python evaluate_model.py --load_in_4bit
-
-# Reduce max sequence length
-python evaluate_model.py --max_seq_length 1024
-
-# Generate fewer tokens
-python evaluate_model.py --max_new_tokens 100
-```
-
-### Outputs Too Short
-Increase max tokens:
-```bash
-python evaluate_model.py --max_new_tokens 300
-```
-
-### Want Different Outputs Each Time
-Enable sampling:
-```bash
-python evaluate_model.py --use_sampling
-```
-
-## Tips for Best Results
-
-1. **Start with defaults**: Run with no arguments first
-2. **Compare stages**: Test both `--pretrained` and final model
-3. **Use sampling for variety**: Add `--use_sampling` for creative outputs
-4. **Monitor GPU memory**: Check the memory stats in output
-
-## Expected Performance
-
-### Baseline Model (No Training)
-- ❌ Korean: Poor, repetitive, often nonsensical
-- ✅ English: Good, coherent, accurate
-
-### Pretrained Model (After Korean Training)
-- ⚠️ Korean: Improved fluency, better vocabulary
-- ✅ English: Maintained quality
-- ⚠️ Instructions: Better than baseline, but not perfect
-
-### Finetuned Model (After SFT)
-- ✅ Korean: Fluent, accurate, follows instructions
-- ✅ English: Maintained quality
-- ✅ Instructions: Good instruction-following in both languages
-
-## Advanced Usage
-
-### Batch Testing Multiple Configurations
-
-Create a shell script:
-
-```bash
-#!/bin/bash
-# test_configs.sh
-
-echo "Testing different temperatures..."
-
-for temp in 0.3 0.7 1.0; do
-    echo "=== Testing temperature=$temp ==="
-    python evaluate_model.py --use_sampling --temperature $temp \
-        --max_new_tokens 150 > results_temp_${temp}.txt
-done
-
-echo "Testing different token lengths..."
-
-for tokens in 100 200 300; do
-    echo "=== Testing max_new_tokens=$tokens ==="
-    python evaluate_model.py --max_new_tokens $tokens \
-        > results_tokens_${tokens}.txt
-done
-```
-
-### Custom Test Prompts
-
-Modify the `run_evaluation()` function in `evaluate_model.py` to add your own test cases.
-
-## References
-
-- Main training script: `continued-pretrain.py`
-- Unsloth documentation: https://docs.unsloth.ai
-- Generation parameters: https://huggingface.co/docs/transformers/main_classes/text_generation
-
-## Support
-
-If you encounter issues:
-1. Check that training completed successfully
-2. Verify model files exist in `lora_model/` or `lora_model_pretrained/`
-3. Ensure you have sufficient GPU memory
-4. Try reducing `--max_seq_length` or `--max_new_tokens`
-
+评估入口见[源代码](https://github.com/bojieli/ai-agent-book/blob/main/chapter8/continued-pretraining/evaluate_model.py)。全部参数、原始英文说明和历史示例见[技术参考](REFERENCE_EVALUATION.md)。

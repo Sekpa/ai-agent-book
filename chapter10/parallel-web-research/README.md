@@ -1,92 +1,31 @@
-# Experiment 10-4 · Parallel research with real browser sessions
+# 并行收集资料时怎样保持证据一致
 
-This implementation uses no simulated sources, canned content, or artificial source latency. The Manager dynamically launches one homogeneous worker per real university URL. Every worker owns an isolated Playwright Chromium browser context, navigates the live page, reads rendered text, and uses a real configured LLM endpoint for evidence-constrained profile extraction.
+[本章实验目录](../README.md) · [相关正文](../../book/chapter10.md) · [技术参考](REFERENCE.md)
 
-Implemented requirements:
+查阅多个来源可以并行进行，但最后仍需要判断它们是否描述同一个对象。本实验让多个浏览器工作者各自读取来源，再把有出处的结果交给管理者整理。
 
-- Dynamic N-way launch with target URL, teacher name, and routed task ID.
-- Push status updates over a timestamped asynchronous message bus.
-- Per-site timeout/error isolation; an inaccessible or structurally different site does not stop peers.
-- First `target_found` is settled under an `asyncio.Lock`; exactly one terminate broadcast is allowed and late hits are recorded.
-- Navigation and LLM extraction race against the terminate event. Losing workers cancel at a safe point, acknowledge, and close their browser context.
-- Context creation/closure counters make leaked browser sessions an explicit failing audit.
-- Serial and parallel paths visit the same live sites and use the same extraction function; wall-clock time and speedup are measured, not estimated.
+## 理解实验
 
-## Code map
+独立浏览器上下文减少工作者互相影响，任务标识与消息总线帮助管理者追踪进度。并行减少等待，但不会自动解决同名对象、冲突资料或来源质量问题。
 
-- **Run first:** python demo.py --target "Professor Name" --sites-json sites.example.json --agents 3.
-- **Start here:** agents.py::search_one and the Manager run path in run_official_experiment.py.
-- **Core behavior:** worker navigation/extraction, async message bus, first-target settlement and cancellation.
-- **State / protocol:** task IDs, status/result/terminate events, worker registry and manifest.
-- **Verifier:** evidence-constrained extraction, acceptance gates, lock-protected single winner, acknowledgement count and browser-context closure.
-- **Experiment variable:** site count, serial versus parallel scheduling and cascade timing.
-- **Skip on first pass:** provider request serialization, HTML fixtures and report formatting.
+## 动手之前
 
-## Run
+本项目有多条运行路径。先按下文确定要观察的机制，再使用技术参考中对应的环境、数据与命令，避免混用不同路径的配置。 通用环境说明见[实验学习指南](../../docs/EXPERIMENTS.md)。
 
-```bash
-# From the repository root: use the shared Chapter 10 environment
-uv sync --locked --python 3.12 --extra ch10
+## 一步步观察
 
-# Activate it before changing directories:
-# macOS/Linux:
-source .venv/bin/activate
-# Windows PowerShell: .\.venv\Scripts\Activate.ps1
-# Windows cmd: .venv\Scripts\activate.bat
+先阅读站点配置和目标名称，明确每个工作者负责的来源。按技术参考准备浏览器与模型后，从少量来源开始，跟踪启动、返回、追问与终止消息，再检查汇总是否保留出处。
 
-# pip fallback when uv is not installed:
-# python -m pip install -e ".[ch10]"
+## 怎样解释结果
 
-cd chapter10/parallel-web-research
+某个工作者失败时，汇总应说明缺口，而不是让其他结果假装覆盖全部来源。还要比较协调开销与实际节省的时间。
 
-# Single-project compatibility path, still supported during migration:
-# python -m pip install -r requirements.txt
+## 继续思考
 
-playwright install chromium
-cp env.example .env                 # configure one real text-model endpoint
-python demo.py                       # 10 Stanford pages + real serial comparison
-```
+两个来源对同一人的职位给出不同信息，管理者应怎样利用日期和来源解释差异？
 
-For the provenance-complete acceptance campaign (the default comparison plus
-the four-worker live cascade in one run):
+## 阅读代码与技术参考
 
-```bash
-python run_official_experiment.py --run-id exp10-4-real-receipts-YYYYMMDD-vN
-```
+沿下面的顺序阅读代码，可以把前面的概念与实现对应起来：[agents.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter10/parallel-web-research/agents.py) → [message_bus.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter10/parallel-web-research/message_bus.py) → [sources.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter10/parallel-web-research/sources.py) → [demo.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter10/parallel-web-research/demo.py)。
 
-This runner stores full rendered browser observations, credential-free raw SDK
-request/response bodies with provider response IDs and usage, the message-bus
-event stream, exact runtime source hashes, artifact hashes, and acceptance gates.
-
-Use your own university school/directory list:
-
-```bash
-python demo.py --target 'Professor Name' --sites-json sites.example.json --agents 3
-```
-
-`cascade-stress.example.json` repeats a real target-bearing Stanford profile under distinct query URLs solely to make near-simultaneous live hits and cancellation observable. It is a real-browser stress supplement, not the multi-school research dataset.
-
-## Recorded real integration evidence
-
-On 2026-07-29, the default ten-page Stanford run found Andrew Ng on the live Stanford HAI page using ARK extraction. Parallel wall time was 18.542 s; serial time was 58.264 s, a measured 3.142× speedup. All 10 parallel and 10 serial browser contexts closed. The live cascade stress run produced one winner, one terminate broadcast, three losing-worker acknowledgements, and 4/4 closed contexts.
-
-The current provenance-complete campaign is
-[`validation/runs/exp10-4-real-receipts-20260730-v2/manifest.json`](validation/runs/exp10-4-real-receipts-20260730-v2/manifest.json).
-All 12 acceptance gates passed: the ten-site parallel and serial paths both
-found the target and closed all 20 contexts; the measured speedup was 1.872×;
-the cascade produced one broadcast, three loser acknowledgements, and 4/4
-closed contexts. The run retains 24 full browser observations, three raw ARK
-responses with unique response IDs and usage, and 114 bus events. Seven runtime
-source/input hashes and all four artifact hashes recompute exactly, and the
-credential scan found zero hits.
-
-The earlier sanitized summary-only records remain at
-[`validation/real_parallel_serial_2026-07-29.json`](validation/real_parallel_serial_2026-07-29.json)
-and [`validation/real_cascade_2026-07-29.json`](validation/real_cascade_2026-07-29.json)
-for historical comparison; they are not the current provenance anchor.
-
----
-
-## 中文说明
-
-本实现不再使用“可控字符串 + 模拟延迟”。每个同构子 Agent 都拥有独立 Playwright Chromium context，访问真实大学网站、读取实际渲染内容，再由真实 LLM 做证据约束抽取。Manager 维护状态表、错误隔离、超时、加锁单次结算、级联终止、ack 与资源关闭审计；默认还会在同一批网站上实跑串行基线。
+原有说明保存在[技术参考](REFERENCE.md)中。需要查阅详细配置、英文材料或历史记录时，请从这里继续，并核对记录所使用的数据、模型与环境条件。

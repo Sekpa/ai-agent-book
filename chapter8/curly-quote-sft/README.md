@@ -1,25 +1,38 @@
-# 实验 8-18：中文弯引号的作用域敏感 SFT
+# 学习只在合适的语境中修改引号
 
-本实验从生产反馈“中文文章使用了 ASCII 直引号”出发，先把反馈提炼成可审计的文档 Skill，再用结构化合成数据训练 Qwen3-8B 的 LoRA 适配器。重点不是全局字符替换，而是判断符号所在的作用域：中文自然语言中的引用可以改为 `“”`，英文原文、代码、JSON、路径和标识符必须保持其语法需要的引号。
+[本章实验目录](../README.md) · [相关正文](../../book/chapter8.md) · [技术参考](REFERENCE.md)
 
-可读规范保存在 [`SKILL.md`](SKILL.md)；它同时是合成数据的标签依据、训练后的回归规范和规则变更时的重训输入。
+中文正文通常使用弯引号，但代码和 JSON 中的引号承担语法作用。直接全局替换会破坏文件。本实验把修改范围作为学习目标，训练模型区分自然语言与受保护内容。
 
-## 运行
+## 理解实验
+
+样本同时包含应该转换与必须保留的片段，标签由可读规范约束。训练后不仅检查转换率，还要检查误修改和语法完整性。作用域判断比单纯记住两个字符更重要。
+
+## 动手之前
+
+本节先使用本地示例或已有数据，不需要模型 API Key。安装依赖仍可能需要联网。 通用环境说明见[实验学习指南](../../docs/EXPERIMENTS.md)。
+
+## 一步步观察
+
+先生成教学数据并运行质量审计，人工查看中文引用、英文原文、代码和混合 Markdown 样例。确认标签后再训练适配器，最后在未见模板与组合上评价。
+
+以下命令从本实验目录运行；请先完成上面的环境准备。
 
 ```bash
-cd chapter8/curly-quote-sft
 python generate_data.py
 python quality_audit.py
-python train_sft.py --model Qwen/Qwen3-8B
-python evaluate.py --model Qwen/Qwen3-8B --adapter output/adapter
 ```
 
-训练使用本机 CUDA GPU、bf16 和 LoRA；模型必须是开源 Hugging Face checkpoint。默认数据、模型和评估结果都写入本目录，训练回执位于 `validation/`。
+## 怎样解释结果
 
-## 验证口径
+转换更多不一定更好。一次损坏 JSON 的修改，可能比漏改一句正文更严重。应分别报告目标转换、受保护内容保留和语法检查结果。
 
-评估集按作用域逐项计算：中文自然语言引用的转换率、英文原文和代码保护率、非目标文本修改率，以及 Python/JSON/Markdown 的语法完整性。训练集与边界集按模板和组合方式隔离；边界集包含代码注释、嵌套引号、大段英文原文和混合 Markdown。
+## 继续思考
 
-生产系统仍应保留 Markdown/代码解析和语法检查；参数化模型负责在复杂上下文中学会选择作用域，不能成为唯一的语法安全边界。
+代码块中的中文注释包含引号时，规则应怎样定义，数据又应怎样标注？
 
-本机 RTX PRO 6000 实测：1024 条训练样本、256 条留出样本、256 条边界样本，训练 2 个 epoch、Qwen3-8B bf16 LoRA（256 次更新）。基座留出集 exact 为 0%；加入人工审计后的显式正反规则再训练后，留出集 exact 为 96.9%，边界集为 97.7%，两者动态保护区域保持率均为 100%。Python、JavaScript、Java、Go、Rust、SQL、Shell、YAML、Markdown 等代码类别均达到 100%；JSON 为 68.8%，中文报道引用为 81.3%/93.8%。数据门禁和人工抽查记录见 `validation/quality_audit.json` 与 `validation/manual_audit.md`，结果文件见 `validation/eval_base_eval.json`、`validation/eval_adapted_eval.json` 和 `validation/eval_adapted_boundary.json`。
+## 阅读代码与技术参考
+
+沿下面的顺序阅读代码，可以把前面的概念与实现对应起来：[SKILL.md](https://github.com/bojieli/ai-agent-book/blob/main/chapter8/curly-quote-sft/SKILL.md) → [generate_data.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter8/curly-quote-sft/generate_data.py) → [quality_audit.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter8/curly-quote-sft/quality_audit.py) → [train_sft.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter8/curly-quote-sft/train_sft.py) → [evaluate.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter8/curly-quote-sft/evaluate.py)。
+
+原有说明保存在[技术参考](REFERENCE.md)中。需要查阅详细配置、英文材料或历史记录时，请从这里继续，并核对记录所使用的数据、模型与环境条件。

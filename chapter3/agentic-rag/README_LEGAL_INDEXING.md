@@ -1,116 +1,34 @@
-# Legal Document Indexing Script
+# 从法律原文到可检索的证据
 
-This script indexes local Chinese legal documents from the `laws` directory into the retrieval pipeline.
+假设读者问“这项规定适用于谁”，系统只有找到包含适用范围的条文，才有依据回答。这个练习从少量本地法律文档开始，观察原文如何变成检索结果。目标是理解证据的来路，而不是一次导入尽可能多的文件。
 
-## Features
+## 理解索引过程
 
-- **Smart Chunking**: Respects paragraph boundaries with configurable soft (1024 chars) and hard limits (2048 chars)
-- **Automatic Cleanup**: Cleans existing indexes before processing
-- **Category Support**: Process specific legal categories or all documents
-- **Progress Tracking**: Real-time progress updates and statistics
-- **Verification**: Built-in test queries to verify indexing
+索引器先按段落切分文档，再把片段送入检索流水线。切分需要在两件事之间取舍：片段太长会混入无关信息，太短则可能丢失适用条件。
 
-## Prerequisites
+索引成功只说明系统接收了片段，并不说明它能找对证据。检索质量还取决于问题的措辞、切分边界以及检索与重排策略。应把“数据是否入库”和“查询能否找到正确条文”分开检查。
 
-1. Ensure the retrieval pipeline is running:
-   ```bash
-   # Terminal 1: Start dense service
-   python dense_service.py
-   
-   # Terminal 2: Start sparse service  
-   python sparse_service.py
-   
-   # Terminal 3: Start main pipeline
-   python main.py
-   ```
+## 准备少量材料
 
-2. The `laws` directory should be present with legal documents organized by category:
-   ```
-   laws/
-   ├── 1-宪法/
-   ├── 2-宪法相关法/
-   ├── 3-民法典/
-   ├── 3-民法商法/
-   ├── 4-行政法/
-   ├── 5-经济法/
-   ├── 6-社会法/
-   ├── 7-刑法/
-   └── 8-诉讼与非诉讼程序法/
-   ```
+先完成[本实验的入门教程](README.md)，并按照[检索流水线教程](../retrieval-pipeline/README.md)准备服务。在本目录中检查 `laws` 下的文档，选出一个熟悉的主题，手工记录两个问题及其对应条文。上下文增强版本还需要配置生成背景所用的模型凭据。
 
-## Usage
+脚本默认会清理已有索引，因此应使用专门的教学实例。下面的命令保留已有索引，并把导入范围限制为十篇文档；重复执行仍可能带来重复数据，比较实验应使用分别准备的索引。
 
-### Basic Usage
 ```bash
-# Index all legal documents
-python index_local_laws.py
-
-# Index with verification tests
-python index_local_laws.py --verify
+python index_local_laws.py --max-docs 10 --no-cleanup
 ```
 
-### Advanced Options
-```bash
-# Index only first 10 documents
-python index_local_laws.py --max-docs 10
+## 沿着一条证据检查
 
-# Index specific categories only
-python index_local_laws.py --categories "宪法" "民法典" "刑法"
+1. 打开原文，找出回答第一个问题所需的段落，特别留意定义、例外和适用范围。
+2. 查看切分后的片段，判断这些条件是否仍能一起读到。若使用上下文增强，再核对新增背景是否得到原文支持。
+3. 用原问题和一种不同措辞分别检索，检查返回片段的来源与内容。
+4. 将结果与手工记录的条文比较。若没有命中，先定位是未导入、切分丢失信息，还是检索排序靠后。
 
-# Use custom pipeline URL
-python index_local_laws.py --pipeline-url http://localhost:8080
+## 怎样解释结果
 
-# Skip cleanup (append to existing index)
-python index_local_laws.py --no-cleanup
-```
+命中一个包含关键词的片段，不等于找到充分证据。读者应能沿文档来源回到原文，并说明片段为什么适用于当前问题。小样本用于检查流程；要判断一种索引方式是否更好，需要在相同文档、问题和检索配置下比较更多样本。
 
-## Chunking Strategy
+继续思考：如果两个相邻条文分别给出一般规则和例外，怎样让检索结果同时呈现它们？
 
-The script uses intelligent chunking that:
-1. Accumulates paragraphs until soft limit (1024 chars) is exceeded
-2. Continues adding if next paragraph fits within hard limit (2048 chars)  
-3. Cuts at paragraph boundary when possible
-4. Force splits oversized paragraphs at hard limit
-
-This approach ensures:
-- Legal provisions remain intact when possible
-- Context is preserved within chunks
-- Search relevance is optimized
-
-## Output Statistics
-
-After indexing, the script displays:
-- Processing time
-- Number of documents and categories processed
-- Total chunks created and indexed
-- Average chunks per document
-- Processing speed
-- Any errors encountered
-
-## Verification
-
-Use the `--verify` flag to run test searches:
-```bash
-python index_local_laws.py --verify
-```
-
-Test queries include:
-- 民法典 (Civil Code)
-- 合同法 (Contract Law)
-- 劳动法 (Labor Law)
-- 刑法 (Criminal Law)
-- 宪法 (Constitution)
-
-## Document Store
-
-The script maintains a local `document_store.json` file tracking:
-- Document metadata
-- Number of chunks per document
-- Indexing timestamps
-- Category information
-
-## Error Handling
-
-- Documents that fail to read are skipped
-- Failed chunk indexing is logged but doesn't stop processing
-- Statistics track all errors for review
+脚本实现见 [index_local_laws.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter3/agentic-rag/index_local_laws.py)。分类过滤、服务参数和原始操作说明保存在[技术参考](REFERENCE_LEGAL_INDEXING.md)中。

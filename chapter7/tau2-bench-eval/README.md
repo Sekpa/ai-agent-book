@@ -1,86 +1,29 @@
-# Experiment 7-1: τ²-bench telecom evaluation
+# 在交互环境中评价客服 Agent
 
-This directory retains the bounded τ²-bench campaign requested by the
-manuscript: five telecom tasks, one trial per task, with the same model acting
-as the customer-service Agent and user simulator.
+[本章实验目录](../README.md) · [相关正文](../../book/chapter7.md) · [技术参考](REFERENCE.md)
 
-## Code map
+客服回答看起来合理，后台状态却可能没有正确改变。τ²-bench 把用户交互、工具操作与任务结果放在同一环境中，适合学习怎样评价完整任务行为。
 
-- **Run first:** follow the pinned external checkout command below and run one task with num-trials 1.
-- **Start here:** the τ²-bench CLI is the runner; this directory is the reproducibility and evidence wrapper.
-- **Core behavior:** the external telecom environment executes the Agent/user turns; this project records the resulting trajectory.
-- **State / protocol:** saved raw trajectory, task seed, model IDs and run manifest under validation/runs/.
-- **Verifier:** task reward plus the chapter acceptance checks; inspect the failed task record, not only the 4/5 aggregate.
-- **Experiment variable:** fixed task set, model pair, concurrency and seed.
-- **Skip on first pass:** upstream framework internals and cost-report formatting.
+## 理解实验
 
-## Reproduction
+模拟用户提供需求，Agent 使用工具，环境根据状态判断任务完成情况。一次评价因此不只是给文本打分，还涉及工具参数、操作顺序和业务约束。用户模拟器的行为也会影响任务难度。
 
-The external checkout is deliberately not vendored. Clone and pin the
-authoritative source first:
+## 动手之前
 
-```bash
-git clone https://github.com/sierra-research/tau2-bench.git chapter7/tau2-bench
-git -C chapter7/tau2-bench checkout --detach 8d005b0e5b9e4af0bc055886fa7f95fc86d1710e
-cd chapter7/tau2-bench
-uv venv --python 3.12
-uv pip install -e .
-```
+本项目有多条运行路径。先按下文确定要观察的机制，再使用技术参考中对应的环境、数据与命令，避免混用不同路径的配置。 通用环境说明见[实验学习指南](../../docs/EXPERIMENTS.md)。
 
-With `OPENROUTER_API_KEY` configured, the saved campaign used:
+## 一步步观察
 
-```bash
-.venv/bin/tau2 run \
-  --domain telecom \
-  --agent-llm openrouter/openai/gpt-4.1-mini \
-  --user-llm openrouter/openai/gpt-4.1-mini \
-  --num-trials 1 \
-  --num-tasks 5 \
-  --max-concurrency 3 \
-  --save-to exp7-1-openrouter-gpt41mini-telecom-5tasks-20260802-v1 \
-  --log-level INFO
-```
+先阅读一条电信任务的目标和工具轨迹，再按技术参考取得固定版本的外部框架。配置模型后从单个任务、单次试验开始，逐步核对每次动作如何改变状态，最后才扩展到任务集合。
 
-Both model temperatures were `0`; τ²-bench recorded seed `300`. The retained
-raw trajectory is under
-[`validation/runs/exp7-1-openrouter-gpt41mini-telecom-20260802-v1/`](validation/runs/exp7-1-openrouter-gpt41mini-telecom-20260802-v1/).
+## 怎样解释结果
 
-## Result
+本目录保留的是复现配置与记录，运行主体在外部框架中。少量任务的一次成功率不代表整个基准成绩；应同时记录任务选择、模型与试验次数。
 
-The Agent passed 4/5 tasks, for average reward and Pass@1 of **0.80**. All five
-simulations ended normally with `user_stop`; there were no provider errors.
-The retained provider-reported costs total about **$0.151312**: $0.112672 for
-the Agent and $0.0386396 for the user simulator.
+## 继续思考
 
-The failed task was
-`[mobile_data_issue]data_saver_mode_on|data_usage_exceeded[PERSONA:Easy]`.
-The customer supplied phone `555-123-2002`, but the Agent selected line
-`L1001`. A later `get_details_by_id(L1001)` result explicitly associated that
-line with phone `555-123-2001`; nevertheless, the Agent continued using its
-3.2/5 GB usage reading. It correctly had the user disable Data Saver, but did
-not inspect the matching `L1002` line or perform the required 2 GB data refuel.
-It spent the remainder of a 71-message trajectory on unrelated diagnostics and
-ultimately transferred to a human. Consequently, `refuel_data` and all three
-downstream environment assertions failed. The trajectory also exposes an
-earlier policy violation where the Agent emitted two customer-lookup tool calls
-in one turn even though the telecom policy permits only one at a time.
+Agent 得到了正确最终状态，却违反中间业务规则，应怎样评价这次运行？
 
-This is a useful dual-control failure: the user-side Data Saver action occurred
-and was verified in the shared environment, while the Agent-side line-selection
-mistake prevented the second state mutation and final recovery.
+## 阅读代码与技术参考
 
-## Verification boundary
-
-The upstream public verifier reports:
-
-- format validation: passed;
-- trial-count validation: passed;
-- task validation: failed because a public leaderboard submission must cover
-  the full telecom task set.
-
-That coverage failure is expected for the five-task command specified by this
-book experiment. This evidence therefore establishes the bounded Experiment
-7-1 campaign, not a full-domain τ²-bench leaderboard result. See
-[`evidence.json`](validation/runs/exp7-1-openrouter-gpt41mini-telecom-20260802-v1/evidence.json)
-for machine-readable outcomes and [`manifest.json`](validation/runs/exp7-1-openrouter-gpt41mini-telecom-20260802-v1/manifest.json)
-for content hashes.
+原有说明保存在[技术参考](REFERENCE.md)中。需要查阅详细配置、英文材料或历史记录时，请从这里继续，并核对记录所使用的数据、模型与环境条件。

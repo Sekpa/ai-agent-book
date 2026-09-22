@@ -1,26 +1,31 @@
-# 实验 6-14：RGB 视觉策略的跨环境测试
+# 通过视觉扰动研究跨环境泛化
 
-本目录对应正文实验 6-14。运行器与已归档证据沿用历史标识 `6-13`，复核时按原路径读取。
+[本章实验目录](../README.md) · [相关正文](../../book/chapter6.md) · [技术参考](REFERENCE.md)
 
-这是一个可在本地 GPU 上完成的“仿真环境迁移到现实环境”代理实验。它不声称已经在 SO100 真机上完成零样本抓取，而是用可控的 RGB 训练环境和变化后的测试环境，检验训练时扩大画面变化范围是否有助于应对真实相机可能遇到的背景、光照和噪声差异。
+训练图片与实际相机画面常有背景、光照和噪声差异。本实验用可控的视觉训练与测试环境，学习扩大训练变化范围是否能减少这种分布差异。
 
-## 运行
+## 理解实验
 
-```bash
-cd chapter6/rgb-sim2real-grasping
-python pipeline.py --train-size 4096 --test-size 1024 --epochs 10 --seeds 20260808,20260809,20260810 --output-dir validation/runs/local-gpu
-python validate_evidence.py validation/runs/local-gpu/evidence.json
-```
+训练阶段改变图像条件，测试阶段使用不同环境，比较策略在未见变化下的表现。训练数据更丰富可能提升适应性，也可能增加学习难度；需要在相同测试条件下比较。
 
-正式协议使用 3 个随机种子、4 种训练条件、2 种测试环境，每种条件训练 4096 个样本、训练 10 轮。脚本训练相同结构的 RGB 策略：
+## 动手之前
 
-- `source_clean`：只看固定的训练画面；
-- `source_background`：只改变训练背景；
-- `source_appearance`：只改变物体外观；
-- `source_full`：同时改变背景、外观、光照和噪声。
+训练需要独立的数据与计算环境。先按技术参考核对数据准备、模型版本与硬件要求；第一次练习只检查少量样本和一个短流程。 通用环境说明见[实验学习指南](../../docs/EXPERIMENTS.md)。
 
-所有策略都在固定训练画面和两种变化后的测试环境中测试。验收要求固定画面策略在训练环境的准确率超过 0.85，完整随机化策略在两个测试环境的准确率超过 0.65，并且在两个环境都优于固定画面训练。输出包含模型 checkpoint、逐种子逐条件的指标矩阵、训练指标、训练画面/测试画面预览图和 SHA-256。
+## 一步步观察
 
-## 如何解读
+先查看图像生成与标签定义，列出训练和测试之间改变的因素。按技术参考准备计算环境，运行一个小规模流程，确认样本与预测对应，再扩展到多种训练条件和随机种子。
 
-这个实验只证明“扩大训练分布可以缓解视觉差距”，不证明仿真已经等价于真实机器人。真机部署仍需相机标定、真实参数测量、急停、观察员和 SO100 硬件；原 `upstream.lock.json` 记录的 LeRobot/ManiSkill 路径作为后续的硬件扩展保留。
+## 怎样解释结果
+
+这是跨环境视觉学习的代理实验，不是真机零样本抓取验证。评估应关注未见环境表现，不能只看训练集损失下降。
+
+## 继续思考
+
+哪些随机变化接近真实相机差异，哪些可能改变任务本身、让训练标签不再成立？
+
+## 阅读代码与技术参考
+
+沿下面的顺序阅读代码，可以把前面的概念与实现对应起来：[pipeline.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter6/rgb-sim2real-grasping/pipeline.py) → [preflight.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter6/rgb-sim2real-grasping/preflight.py) → [validate_evidence.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter6/rgb-sim2real-grasping/validate_evidence.py)。
+
+原有说明保存在[技术参考](REFERENCE.md)中。需要查阅详细配置、英文材料或历史记录时，请从这里继续，并核对记录所使用的数据、模型与环境条件。

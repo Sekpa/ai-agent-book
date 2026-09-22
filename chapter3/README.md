@@ -1,45 +1,37 @@
 # 第 3 章 · 用户记忆和知识库
 
-> 跨会话记住用户、接入外部知识：用户记忆、RAG、结构化索引、知识图谱
+[读本章正文](../book/chapter3.md) · [实验学习指南](../docs/EXPERIMENTS.md)
 
-← [返回主目录](../README.md) · 📖 [读本章正文](../book/chapter3.md)
+本章围绕保存、检索与使用信息展开。先理解简单检索为何命中或漏检，再引入语义表示、多步取证和跨会话记忆。
 
-可复现实验的逐项验收条件与规范证据路径见
-[EXPERIMENT_LEDGER.md](EXPERIMENT_LEDGER.md)；项目可运行不等同于实验已通过，
-最终状态以各项目的 `validation/latest.json` 为准。
+## 建议的学习顺序
 
-## 如何阅读实验
-
-正文用伪代码说明“读取记忆 → 后台提取 → 核验 → 写入”的生命周期；完整存储与检索实现放在项目中：
-
-- **Starter**：从 [user-memory](user-memory/) 运行一次对话和后台处理，先看 conversational_agent.py、background_memory_processor.py；
-- **Builder**：再读 [retrieval-pipeline](retrieval-pipeline/) 的 RetrievalPipeline.search、fusion.py::fuse 和 Reranker.rerank；
-- **Maintainer**：最后查看评估夹具、来源/时间戳、索引构建与失败回退，并对照 [agentic-rag](agentic-rag/)。
-
-不需要首轮理解每个 embedding provider 或 UI 文件；先把“事实日志”和“可变索引/记忆”分开，再按代码地图深入。
+1. [从关键词匹配理解 BM25 检索](sparse-embedding/README.md)：先用可解释的 BM25 得分理解关键词检索。
+2. [组合关键词检索、向量检索与重排序](retrieval-pipeline/README.md)：再比较召回、融合与重排各自改变了什么。
+3. [把对话历史转成可持续更新的用户记忆](user-memory/README.md)：最后把检索放进持续对话，观察事实如何保存和更新。
 
 ## 配套项目
 
-| 编号 | 项目 | 类型 | 一句话说明 |
+| 编号 | 项目 | 类型 | 学习内容 |
 | :--: | --- | :--: | --- |
-| 3-1, 3-2 | [user-memory](user-memory/) | ✅ | 长期用户记忆系统，让 Agent 记住偏好与历史交互、提供个性化服务 |
-| 3-1, 6-3 | [user-memory-evaluation](user-memory-evaluation/) | ✅ | 三层用户记忆评估集；实验 6-3 的四档多维 Rubric、逐维证据与幻觉一票否决 |
-| 3-2 | [mem0](mem0/) · [memobase](memobase/) | ✅ | 用 mem0、Memobase 两个开源框架各实现一版用户记忆，作为实验 3-2 的对照实现 |
-| 3-3 | [log-sanitization](log-sanitization/) | ✅ | 智能日志脱敏系统，基于本地 Ollama 模型检测并脱敏日志中的密钥和 PII 敏感数据 |
-| 3-4 | [dense-embedding](dense-embedding/) | ✅ | 向量相似性搜索服务，对比 ANNOY（树）与 HNSW（图）两种 ANN 算法的权衡 |
-| 3-5 | [sparse-embedding](sparse-embedding/) | ✅ | 从零实现基于 BM25 的稀疏向量搜索引擎，可视化内部工作机制 |
-| 3-6 | [retrieval-pipeline](retrieval-pipeline/) | ✅ | 稠密 + 稀疏 + 神经重排序的完整流水线，用测试用例展示混合检索的互补效果 |
-| 3-7 | [structured-index](structured-index/) | ✅ | 实现并对比 RAPTOR（递归抽象树）与 GraphRAG（知识图谱）两种结构化索引 |
-| 3-8 | [agentic-rag](agentic-rag/) | ✅ | 对比 Non-Agentic 与 Agentic RAG，展示 ReAct 主导的迭代检索在司法问答上的优势 |
-| 3-9 | [agentic-rag-for-user-memory](agentic-rag-for-user-memory/) | ✅ | 用 Agentic RAG 管理用户对话历史，实现跨会话记忆检索 |
-| 3-10 | [contextual-retrieval](contextual-retrieval/) | ✅ | 实现 Anthropic 的上下文感知检索，为分块生成前缀摘要，失败率降低 49–67% |
-| 3-11 | [contextual-retrieval-for-user-memory](contextual-retrieval-for-user-memory/) | ✅ | 结合 Advanced JSON Cards 与上下文感知 RAG，形成双层记忆结构实现主动服务 |
-| 3-12 | [structured-knowledge-extraction](structured-knowledge-extraction/) | ✅ | 以司法判例跑通「因子发现 → 聚类原型 → 对话式建议」三段流水线 |
+| 3-1, 3-2 | [把对话历史转成可持续更新的用户记忆](user-memory/README.md) | ✅ | 保存全部聊天记录，不等于下次对话能用上相关信息。 |
+| 3-1, 6-3 | [评估系统是否真的用好了记忆](user-memory-evaluation/README.md) | ✅ | 记忆系统可能保存了正确事实，却在需要时找不到；也可能找到片段，却误解了指代。 |
+| 3-2 | [用 Mem0 管理跨会话记忆](mem0/README.md) · [memobase](memobase/README.md) | ✅ | 引入记忆框架后，应用可以把信息提取与检索交给专门组件，但仍需理解框架实际保存了什么。 |
+| 3-3 | [在保护敏感信息的同时保留可诊断日志](log-sanitization/README.md) | ✅ | 日志能帮助定位错误，也可能包含账号、联系方式或凭据。 |
+| 3-4 | [把文本变成向量后怎样检索](dense-embedding/README.md) | ✅ | 用户的问题与文档用词不同，仍可能表达相同含义。 |
+| 3-5 | [从关键词匹配理解 BM25 检索](sparse-embedding/README.md) | ✅ | 为什么搜索一个少见的产品型号，往往比搜索“产品”更容易定位文档？本实验从倒排索引和 BM25 出发，解释关键词检索怎样为候选文档排序。 |
+| 3-6 | [组合关键词检索、向量检索与重排序](retrieval-pipeline/README.md) | ✅ | 关键词检索擅长精确词项，向量检索擅长语义相近表达。 |
+| 3-7 | [用层次结构和关系图组织知识](structured-index/README.md) | ✅ | 有些问题只需一个段落，有些问题却要跨越多个章节。 |
+| 3-8 | [让 Agent 根据已有证据继续检索](agentic-rag/README.md) | ✅ | 一次检索往往只能回答问题的一部分。 |
+| 3-9 | [跨多次对话寻找回答所需的记忆](agentic-rag-for-user-memory/README.md) | ✅ | 用户问“按我上次的偏好安排吧”，相关偏好可能散落在多次对话中。 |
+| 3-10 | [给孤立片段补上检索所需的背景](contextual-retrieval/README.md) | ✅ | 文档中的“该规定”或“上述方法”离开上下文后常常难以理解。 |
+| 3-11 | [同时保存对话证据与结构化用户记忆](contextual-retrieval-for-user-memory/README.md) | ✅ | “他已经改了时间”这样的句子离开对话很难理解，而单独保存“周三开会”又可能丢掉来源。 |
+| 3-12 | [从案例中抽取因素并形成可检索知识](structured-knowledge-extraction/README.md) | ✅ | 一批案例可能反复出现相同的影响因素，但这些因素未必已经被整理成表格。 |
 
-## 项目类型说明
+✅ 表示仓库提供实现入口；📖 表示需要按指南准备外部项目；🚧 表示按正文开展的设计练习。即使有实现入口，模型、数据、浏览器或硬件仍可能需要单独准备。
 
-| 图标 | 类型 | 含义 |
-| :--: | --- | --- |
-| ✅ | **可独立运行** | 本仓库自带完整代码，配置好 API Key 即可运行 |
-| 📖 | **复现指南** | 依赖需自行 `git clone` 的**外部仓库**（训练框架、评测基准等） |
-| 🚧 | **设计文档** | 仅包含架构与实现方案，可运行代码仍在完善中 |
+## 从演示走向完整实验
+
+先选一项实验，读清楚输入、预期观察和结果解释，再准备该项目的环境。能解释一次运行后，再扩大任务数量或比较不同配置。不要把离线示例、真实模型运行和硬件结果混为同一种证据。
+
+各实验的 README 是教学入口。完整配置、英文资料与历史结果保留在对应的技术参考文档中；本章的原始目录、外部项目版本与运行记录可在[章节技术参考](REFERENCE.md)中查阅。

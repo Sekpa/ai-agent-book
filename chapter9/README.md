@@ -1,45 +1,33 @@
 # 第 9 章 · Agent 的持续进化
 
-> 从运行轨迹中获得可靠信号，把经验转化为可验证、可回滚的能力更新
+[读本章正文](../book/chapter9.md) · [实验学习指南](../docs/EXPERIMENTS.md)
 
-← [返回主目录](../README.md) · 📖 [读本章正文](../book/chapter9.md)
+本章把评估接到更新过程。经验可以成为规则、提示词、工作流或代码，但每次更新都应有来源、独立验证和适用范围。
 
-## 如何阅读实验
+## 建议的学习顺序
 
-正文用 skeleton 说明验证、载体选择、候选发布/回滚和睡眠学习；项目代码按三层阅读：
+1. [把运行轨迹变成有依据的学习信号](trajectory-verifier/README.md)：先把轨迹变成带具体证据的诊断。
+2. [用最小提示词改动修正已定位的失败](prompt-auto-optimization/README.md)：再观察一条诊断怎样引出可检查的最小补丁。
+3. [评价学习、迁移、修订与保持](self-evolution-eval/README.md)：最后用任务流检查学习、迁移、修订与保持。
 
-- **Starter**：从 [trajectory-verifier](trajectory-verifier/) 运行离线样例，先看三层 verifier 和证据输出；
-- **Builder**：再看 [self-modifying-agent](self-modifying-agent/) 的提案—回归—灰度—回滚循环，以及 [prompt-auto-optimization](prompt-auto-optimization/) 的最小 diff；
-- **Maintainer**：检查安全可信根、边界/保留/安全集、版本淘汰和 validation/latest.json。首次可跳过 provider 与 UI 适配。
+## 配套项目
 
-## 配套实验
-
-| 编号 | 项目 | 类型 | 一句话说明 |
+| 编号 | 项目 | 类型 | 学习内容 |
 | :--: | --- | :--: | --- |
-| 9-1 | [trajectory-verifier](trajectory-verifier/) | ✅ | 实验 9-1：28 条真实客服调用、8 次 Judge 调用与 8 条专家标注样本已通过验收；[证据](trajectory-verifier/validation/real_20260729T165247Z/evidence.json)同时记录关键违规稳定性主张未复现 |
-| 9-2 | [tau2-escalation-experience](tau2-escalation-experience/) | ✅ | 实验 9-2：τ²-bench telecom 上由模型从 19 条失败轨迹提炼转接与工具使用规则；迁移集 114 条通过率 12.3% → 19.3%，零回归；[证据](tau2-escalation-experience/validation/evidence.json)保留提炼回执、三臂策略哈希与行为指标 |
-| 9-3 | [prompt-auto-optimization](prompt-auto-optimization/) | ✅ | 实验 9-3：真实任务 Agent、LLM Judge 与 Coding Agent 跑完初始/自动/人工三组完整保留集和边界集；原始回执与发布门槛已保存 |
-| 9-4 | 正文对照实验 | 🚧 | 从用户反馈中进化“需求澄清 + Spec 确认”Skill；正文给出三臂 A/B 设计、指标和发布门槛，配套实现待补充 |
-| 9-5 | [browser-use-rpa](browser-use-rpa/) | ✅ | 实验 9-5：真实 ARK Agent + Chromium 在可重置本地消息站完成探索、独立验证、参数化回放、假成功对照与页面变化失效 |
-| 9-6 | [self-modifying-agent](self-modifying-agent/) | ✅ | 实验 9-6：真实 Coding Agent 从重复故障生成补丁，并与确定性提案、故意过宽的反例通过同一回归/灰度/回滚发布门；[证据](self-modifying-agent/validation/latest.json)保留接受与拒绝历史 |
-| 9-7 | [harness-safety-gate](harness-safety-gate/) | ✅ | 实验 9-7：用户纠正/点踩/事后审计触发“高风险调用确认门禁”提案，经 AST 静态检查、未完成任务回放和正常操作回放；确定性提案通过，真实 `gpt-4o-mini` 提案因检查失败被安全拒绝，整体验收通过 |
-| 9-8 | [hermes-self-evolution](hermes-self-evolution/) | 📖 | 实验 9-8：把整本书和源码交给 Hermes；它读完后选择一项改进，亲手修改自己，并把每次 Reviewer 的退回变成下一轮学习，直到通过 |
-| 9-9 | [self-evolution-eval](self-evolution-eval/) | ✅ | 实验 9-9：static、append-only、evolving 三臂 × 3 seeds × 14 任务共 126 次真实调用；[证据](self-evolution-eval/validation/latest.json)保留迁移、规则替换、保持与配对统计 |
+| 9-1 | [把运行轨迹变成有依据的学习信号](trajectory-verifier/README.md) | ✅ | 用户满意度或一个总分，很难告诉我们 Agent 应该改哪一步。 |
+| 9-2 | [从失败案例提炼可以迁移的规则](tau2-escalation-experience/README.md) | ✅ | 客服 Agent 可能太早转人工，也可能在需要帮助时反复尝试。 |
+| 9-3 | [用最小提示词改动修正已定位的失败](prompt-auto-optimization/README.md) | ✅ | 让模型把提示词“润色一下”，很难知道变化是否有效。 |
+| 9-4 | 正文对照实验 | 🚧 | 比较直接执行与先澄清需求的流程，练习把反馈写成 Skill；本项按正文开展。 |
+| 9-5 | [把成功浏览器操作转成可验证工作流](browser-use-rpa/README.md) | ✅ | 一次网页任务成功后，能否把路径保存起来，下次更快完成？本实验学习从探索轨迹提炼工作流，并在页面变化时判断旧流程是否仍有效。 |
+| 9-6 | [把反复出现的控制错误定位到代码](self-modifying-agent/README.md) | ✅ | 工具已经说明错误不可重试，Agent 却仍重复调用，这可能是控制逻辑的问题。 |
+| 9-7 | [把用户纠正转成执行前的确认规则](harness-safety-gate/README.md) | ✅ | 用户指出“这类操作应该先问我”，说明系统可能缺少执行前的约束。 |
+| 9-8 | [让 Agent 阅读设计知识后提出自身改进](hermes-self-evolution/README.md) | 📖 | Agent 读完工程知识，能否发现自身实现中的不足，并把建议变成可验证变化？本实验将阅读、源码分析、修改与后续评估连接起来。 |
+| 9-9 | [评价学习、迁移、修订与保持](self-evolution-eval/README.md) | ✅ | 真正的持续进化不只是同一道题第二次做对。 |
 
-带项目链接的实验都保留无需 API Key 的离线入口和单元测试用于预检。
+✅ 表示仓库提供实现入口；📖 表示需要按指南准备外部项目；🚧 表示按正文开展的设计练习。即使有实现入口，模型、数据、浏览器或硬件仍可能需要单独准备。
 
-## 补充案例
+## 从演示走向完整实验
 
-| 编号 | 项目 | 关系 |
-| :--: | --- | --- |
-| 8-8 | [prompt-distillation](../chapter8/prompt-distillation/) | Prompt 蒸馏与参数化学习的跨章项目；训练方法归入第八章 |
-| — | [self-evolving-tools](self-evolving-tools/) | Alita 式工具发现、封装与复用，是“将经验写成程序”的补充案例 |
-| — | [ai-style-skill](ai-style-skill/) | 写作型 Skill 的补充实验：把“去 AI 味”反馈提炼为可检查规则；正文示例移至第二章，自动更新管道和验收数据保留在项目 README |
+先选一项实验，读清楚输入、预期观察和结果解释，再准备该项目的环境。能解释一次运行后，再扩大任务数量或比较不同配置。不要把离线示例、真实模型运行和硬件结果混为同一种证据。
 
-## 项目类型说明
-
-| 图标 | 类型 | 含义 |
-| :--: | --- | --- |
-| ✅ | **可独立运行** | 本仓库自带完整代码，配置好 API Key 即可运行 |
-| 📖 | **复现指南** | 依赖需自行 `git clone` 的**外部仓库**（训练框架、评测基准等） |
-| 🚧 | **进行中** | 已有实现，但真实数据、真实环境或纵向验收证据尚未完整 |
+各实验的 README 是教学入口。完整配置、英文资料与历史结果保留在对应的技术参考文档中；本章的原始目录、外部项目版本与运行记录可在[章节技术参考](REFERENCE.md)中查阅。

@@ -61,6 +61,10 @@ for ch in chapter1 chapter2 chapter3 chapter4 chapter5 \
   fi
 done
 
+# Shared Chinese experiment learning guide.
+mkdir -p "$DEST/docs"
+cp "$ROOT/docs/EXPERIMENTS.md" "$DEST/docs/EXPERIMENTS.md"
+
 # Copy site-level assets (JS/CSS for the language switcher) that MkDocs
 # resolves relative to docs_dir.
 cp -R "$ROOT/extras" "$DEST/extras"

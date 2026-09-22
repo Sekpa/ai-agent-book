@@ -1,189 +1,31 @@
-# GPT-5.6 Sol Deep Research / GPT-5.6 Sol 深度研究
+# 把搜索得到的信息交给代码计算
 
-> Responses API companion for Chapter 1, Experiment 1-3: hosted
-> `web_search` + hosted `code_interpreter`, typed tool traces, citations, and an
-> intent-clarification continuation. The canonical path is OpenAI GPT-5.6 Sol;
-> acceptance is multi-provider and may be closed by any provider whose
-> Responses API genuinely closes the search/code loop server-side — currently
-> Alibaba Model Studio (DashScope) `qwen3.7-plus`.
+[本章实验目录](../README.md) · [相关正文](../../book/chapter1.md) · [技术参考](REFERENCE.md)
 
-← [Chapter 1 index / 返回第 1 章目录](../README.md) ·
-📖 [Book experiment / 正文实验](../../book/chapter1.md)
+“两个城市相距多远”同时包含事实查询和数值计算。只让模型凭记忆作答，难以核对数据来源；只运行程序，又缺少输入数据。本实验把搜索与代码执行串起来，观察 Agent 怎样完成这类复合任务。
 
-## What this companion implements
+## 理解实验
 
-The canonical path is the OpenAI **Responses API**, not a Chat Completions
-request that merely contains similarly named tool objects. The active agent in
-`agent.py` sends:
+模型先决定需要哪些信息，再调用托管搜索和代码执行工具。搜索结果提供可追溯的数据，代码把数据转成可检查的计算。回答中的引用与计算过程应能对应起来，才能判断结论是怎样得到的。
 
-```json
-{
-  "model": "gpt-5.6-sol",
-  "tools": [
-    {"type": "web_search", "search_context_size": "medium"},
-    {
-      "type": "code_interpreter",
-      "container": {"type": "auto", "memory_limit": "4g"}
-    }
-  ],
-  "reasoning": {"effort": "high"},
-  "text": {"verbosity": "high"}
-}
-```
+## 动手之前
 
-The DashScope backend speaks the same `/responses` protocol against
-`{DASHSCOPE_BASE_URL}/responses` with the provider's hosted-tool shapes:
+本项目有多条运行路径。先按下文确定要观察的机制，再使用技术参考中对应的环境、数据与命令，避免混用不同路径的配置。 通用环境说明见[实验学习指南](../../docs/EXPERIMENTS.md)。
 
-```json
-{
-  "model": "qwen3.7-plus",
-  "tools": [{"type": "web_search"}, {"type": "code_interpreter"}],
-  "stream": true
-}
-```
+## 一步步观察
 
-DashScope runs thinking natively (no `reasoning.effort`/`text.verbosity`
-knobs) and its gateway drops non-streaming requests that stay silent for
-about 60 seconds, so the backend always streams and keeps the final
-`response.completed` object, which has the same shape as a non-streaming
-response.
+先读 `example_request.py` 和技术参考中的请求示例，识别模型、工具、用户需求三个部分。再选一个支持相应托管工具的后端，完成凭据配置，运行单次查询。不要把“请求里写了工具名”当作工具确实执行过。
 
-Acceptance is based on provider output items. A successful ASEAN-capitals run
-must contain completed `web_search_call` and `code_interpreter_call` items,
-clickable URL citations, and the computed closest pair. A text answer that says
-it used Python does not pass without the provider tool receipt.
+## 怎样解释结果
 
-The second scenario sends the deliberately ambiguous Bitcoin request used in
-the chapter, requires the first response to clarify material preferences before
-using tools, then continues with `previous_response_id` after the user supplies
-the data source and indicators.
+在轨迹中寻找搜索、代码执行和最终答案三个环节。若使用城市距离问题，还应检查坐标来源、距离公式和参与比较的城市集合。一个格式漂亮的表格不足以证明计算正确；缺少的国家或错误坐标都会改变最近的一对。
 
-## Current evidence status
+## 继续思考
 
-Run the complete validator with:
+用户只说“做一份城市距离分析”时，哪些条件应该先澄清，哪些可以在回答中说明假设？
 
-```bash
-cd chapter1/search-codegen
-python run_experiment_1_3.py --backends openai dashscope --reasoning high
-```
+## 阅读代码与技术参考
 
-The latest evidence is [validation/latest.json](validation/latest.json); raw
-credential-free receipts, a manifest, and SHA-256 sidecars live in
-`validation/runs/real_20260731T170529Z/`.
+沿下面的顺序阅读代码，可以把前面的概念与实现对应起来：[example_request.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter1/search-codegen/example_request.py) → [agent.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter1/search-codegen/agent.py) → [main.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter1/search-codegen/main.py)。
 
-Result of the 2026-07-31 multi-provider acceptance run: **passed**, with
-`dashscope` (`qwen3.7-plus`) as the acceptance backend.
-
-- ASEAN capitals: one hosted `web_search_call` batching ten model-issued
-  coordinate queries, then a hosted `code_interpreter_call` that enumerated all
-  45 haversine pairs and found Kuala Lumpur–Singapore at 316.35 km — the same
-  pair as the independent local reference computed from standard coordinates.
-- Bitcoin technical analysis: the first turn asked which data source and which
-  indicators to use **without calling any tool**; the continuation via
-  `previous_response_id` ran 3 model-directed search rounds and 4 hosted
-  `code_interpreter_call`s computing MA7/MA20, RSI14, MACD(12,26,9), period
-  return and max drawdown, and plotted a close-price chart in the sandbox.
-- The official OpenAI `gpt-5.6-sol` path is still intact but remains
-  quota-blocked: both calls returned `credit_balance_exhausted` before any
-  hosted tool ran, which is recorded in the same evidence file.
-- Honest qualifications: the DashScope sandbox has no outbound network, so the
-  daily closes were extracted through web search (the model disclosed this in
-  its report); the chart PNG stays inside the sandbox because this Responses
-  API returns execution logs only; and `qwen3.7-plus` only asks before acting
-  when the system prompt carries an explicit clarify-first rule — the shipped
-  prompt encodes it.
-- The OpenRouter route is retained strictly as a diagnostic and is never
-  accepted. No fallback model, local Python replacement, fabricated tool
-  trace, or Chat-Completions approximation is counted as fulfillment.
-
-Earlier blocked attempts are kept under `validation/real_20260729T155459Z/`
-and `validation/real_20260730T033800Z/`.
-
-## Setup and CLI
-
-Python 3.9+ is required.
-
-```bash
-# From the repository root: use the shared Chapter 1 environment
-uv sync --locked --extra ch1
-
-# Activate it before changing directories:
-source .venv/bin/activate
-
-# pip fallback when uv is not installed:
-# python -m pip install -e ".[ch1]"
-
-cd chapter1/search-codegen
-
-# Single-project compatibility path, still supported during migration:
-# python -m pip install -r requirements.txt
-
-export OPENAI_API_KEY=your-openai-api-key
-
-# Exact official path
-python main.py --backend openai --mode single \
-  --request "东盟 10 国首都之间最近的一对是哪两个？请搜索并用 Python 计算" \
-  --reasoning high --verbosity high --output result.json
-
-# Equivalent-provider path (eligible for acceptance): Alibaba Model Studio
-export DASHSCOPE_API_KEY=your-dashscope-api-key
-python main.py --backend dashscope --mode single \
-  --request "东盟 10 国首都之间最近的一对是哪两个？请搜索并用 Python 计算" \
-  --output result.json
-
-# Inspect the exact request without an API call
-python main.py --backend openai --dry-run \
-  --request "东盟 10 国首都之间最近的一对？" \
-  --reasoning max --verbosity high
-
-# Proxy diagnostic only; not canonical acceptance
-export OPENROUTER_API_KEY=your-openrouter-api-key
-python main.py --backend openrouter --mode single --request "Search current news"
-```
-
-Important options:
-
-| Option | Meaning |
-|---|---|
-| `--backend openai` | Canonical `https://api.openai.com/v1/responses` path |
-| `--backend dashscope` | Equivalent-provider path: DashScope Responses API, hosted `web_search` + `code_interpreter`, eligible for acceptance |
-| `--backend openrouter` | Explicit proxy diagnostic; never silently substituted |
-| `--reasoning` | `none`, `low`, `medium`, `high`, `xhigh`, or GPT-5.6 `max` |
-| `--verbosity` | Responses `text.verbosity`: `low`, `medium`, or `high` |
-| `--output` | Saves request, typed output items, citations, usage, and raw response |
-
-## Verification
-
-```bash
-python -m pytest -q test_responses_agent.py
-python -m py_compile agent.py config.py main.py run_experiment_1_3.py
-```
-
-The validator checks exact model identity, direct-vs-proxy provenance, both
-hosted tool types, citations, clarification order, continuation linkage, token
-usage, reported provider cost when available, and credential-free raw evidence.
-
-## Official sources
-
-- [GPT-5.6 Sol model](https://developers.openai.com/api/docs/models/gpt-5.6-sol)
-- [Web search](https://developers.openai.com/api/docs/guides/tools-web-search)
-- [Code Interpreter](https://developers.openai.com/api/docs/guides/tools-code-interpreter)
-- [GPT-5.6 model guidance](https://developers.openai.com/api/docs/guides/model-guidance?model=gpt-5.6-sol)
-- [Alibaba Model Studio code interpreter (DashScope)](https://help.aliyun.com/zh/model-studio/qwen-code-interpreter)
-
-## 中文说明
-
-本项目使用正文所述的**精确协议**：Responses API、托管 `web_search` 与托管
-`code_interpreter`。验收依据是服务端返回的 `web_search_call` /
-`code_interpreter_call` 和 URL 引用，而不是代码里“声明了工具”或答案里
-“声称用过 Python”。
-
-按作者批准的多提供商政策，验收不绑定官方 OpenAI 账号：官方 `gpt-5.6-sol` 路径
-完整保留（当前 Key 推理返回 `credit_balance_exhausted`，已在证据中如实记录），
-具备等价托管工具的提供商同样可以验收。2026-07-31 的正式运行用阿里云百炼
-`qwen3.7-plus`（DashScope Responses API）通过了全部验收门：东盟任务先搜索十个
-首都坐标、再用托管 Python 枚举 45 对大圆距离（吉隆坡—新加坡 316.35 km，与独立
-本地参考一致）；比特币任务先在不用任何工具的情况下澄清数据源与指标，再通过
-`previous_response_id` 继续，完成 3 轮模型主导的搜索与 4 次托管代码执行
-（MA7/MA20、RSI14、MACD、区间收益、最大回撤与走势图）。OpenRouter 只作为诊断
-路径明确保留，不会被包装成替代品。
+原有说明保存在[技术参考](REFERENCE.md)中。需要查阅详细配置、英文材料或历史记录时，请从这里继续，并核对记录所使用的数据、模型与环境条件。
