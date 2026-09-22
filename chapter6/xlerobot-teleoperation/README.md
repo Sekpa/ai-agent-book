@@ -1,31 +1,25 @@
-# 用模拟专家控制建立比较基线
+# 实验 6-10 至 6-11：真机遥操作与模拟控制上限
 
-[本章实验目录](../README.md) · [相关正文](../../book/chapter6.md) · [技术参考](REFERENCE.md)
+本目录承接实验 6-10 的 XLeRobot 真机遥操作入口，并提供实验 6-11 的本地模拟上限实验。运行器与已归档模拟证据沿用历史标识 `6-10`。
 
-评价自主操作策略之前，需要知道同一任务在理想控制下能做到什么。本项目先用桌面模拟器建立专家控制基线，再说明它与真实遥操作的关系。
+这是一个可在本机 GPU 上完成的、非致动的桌面操作上限实验。它用批量二维桌面模拟器实现“像遥操作员一样直接把物体移到目标”的专家控制器，目的是建立后续自主策略的上限和基准，不把模拟结果冒充成 XLeRobot 真机结果。
 
-## 理解实验
+## 运行
 
-模拟控制器可以直接把物体移到目标，减少感知与执行的不确定性。它因此适合提供受控上限，但不包含真机的摩擦、标定误差或动作延迟。比较时必须说明哪些困难被模拟环境简化了。
+```bash
+cd chapter6/xlerobot-teleoperation
+python teleop.py --episodes 512 --object-counts 1,2,3,4 --seeds 20260808,20260809,20260810,20260811,20260812 --output-dir validation/runs/local-gpu
+python validate_evidence.py validation/runs/local-gpu/evidence.json
+```
 
-## 动手之前
+脚本优先使用 CUDA，其次使用 Apple MPS；默认拒绝 CPU 回退。正式协议使用 5 个随机种子、4 种物体数量和每格 512 个回合，共 10240 个回合，并额外重复一个固定条件检查结果是否一致。`--allow-cpu` 只用于调试，不能作为正文实验结果。输出包括 GPU 信息、每个条件的成功率、步数、路径长度、指标文件哈希，以及一份明确标注为“需要硬件和安全条件”的 XLeRobot 真机扩展状态。
 
-先在模拟或回放路径中理解流程。真实设备的连接、标定与运行条件见技术参考，模拟结果与真机结果应分别解释。 通用环境说明见[实验学习指南](../../docs/EXPERIMENTS.md)。
+## 观察重点
 
-## 一步步观察
+- 专家控制器在随机物体位置上是否稳定完成所有目标；
+- 完成时间和路径长度的分布；
+- 这个结果只是“硬件加上一个理想控制者”的上限，不代表自主策略已经达到该水平。
 
-先阅读桌面状态与目标定义，跟踪一个物体从初始位置到目标的变化。按技术参考运行少量模拟回合，再增加物体数量，观察成功条件与步数如何改变。真机入口需要独立完成设备准备。
+## 真机扩展
 
-## 怎样解释结果
-
-这里的模拟结果不能作为真机遥操作成绩。应检查上限是否来自专家已知的状态信息，以及自主策略能否获得同等观察。
-
-## 继续思考
-
-如果专家控制器知道物体的精确坐标，而自主策略只能看图像，这个比较应怎样解释？
-
-## 阅读代码与技术参考
-
-沿下面的顺序阅读代码，可以把前面的概念与实现对应起来：[teleop.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter6/xlerobot-teleoperation/teleop.py) → [preflight.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter6/xlerobot-teleoperation/preflight.py) → [validate_evidence.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter6/xlerobot-teleoperation/validate_evidence.py)。
-
-原有说明保存在[技术参考](REFERENCE.md)中。需要查阅详细配置、英文材料或历史记录时，请从这里继续，并核对记录所使用的数据、模型与环境条件。
+XLeRobot 的键盘、Xbox、Joy-Con 和 VR 入口仍由 `upstream.lock.json` 记录，但它们需要真实机械臂、校准、急停和现场观察员。本实验的本地 GPU 验收不会打开串口，也不会执行任何真机动作；只有获得明确授权后，才可另行运行硬件 teleop 复现。

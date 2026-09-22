@@ -1,37 +1,111 @@
-# 用可替换模型运行截图操作循环
+# Open-model Computer Use companion
 
-[本章实验目录](../README.md) · [相关正文](../../book/chapter6.md) · [技术参考](REFERENCE.md)
+This is the provider-portable arm for Experiments 6-8 and 6-9. It runs the
+same screenshot → structured action → browser execution loop without requiring
+an Anthropic or OpenAI model account. The documented hosted route uses the
+open-weight `qwen/qwen3-vl-32b-instruct` model through OpenRouter. The same
+runner accepts a self-hosted vLLM/SGLang endpoint or another OpenAI-compatible
+host.
 
-理解 Computer Use 后，可以进一步问：如果换一个视觉模型，哪些部分需要改变？本实验把模型接入与浏览器执行分开，便于观察协议兼容与实际操作能力的区别。
+The Anthropic Computer Use Demo remains a useful reference implementation for
+its native `computer`, `bash`, and editor tools. This companion does not claim
+that Qwen and Claude are interchangeable. Runs from different models are
+separate experimental arms and must retain the actual endpoint and model ID.
 
-## 理解实验
+## Current evidence
 
-模型接收截图并返回结构化动作，浏览器执行后产生新的观察。兼容接口让模型更容易替换，但动作格式、坐标理解和任务规划仍需要逐项检查。
+The [canonical open-model run](validation/latest.json) passed on 2026-08-01.
+OpenRouter returned the requested `qwen/qwen3-vl-32b-instruct` model for all
+16/16 calls. The Agent hit a Google CAPTCHA, recovered through weather.com,
+and completed in 16 steps. The deterministic validator matched the final
+64°F/Sunny answer to the retained browser observation, verified 15 screenshot
+hashes and the one-action-per-step read-only trajectory, and found no retained
+credential. This completes the Experiment 6-9 open-model arm only; the
+Anthropic-native Experiment 6-8 arm remains separate.
 
-## 动手之前
+## Endpoint contract
 
-本项目有多条运行路径。先按下文确定要观察的机制，再使用技术参考中对应的环境、数据与命令，避免混用不同路径的配置。 通用环境说明见[实验学习指南](../../docs/EXPERIMENTS.md)。
+An endpoint is eligible when it:
 
-## 一步步观察
+- accepts screenshot images in OpenAI-compatible chat messages;
+- can produce the Browser Use action schema, either with native `json_schema`
+  support or with schema-in-prompt JSON;
+- returns enough information for the Agent to choose one browser action per
+  step; and
+- does not silently replace the requested model.
 
-先按技术参考安装浏览器依赖，运行 dry-run 查看任务配置。再接入所选模型，在不登录、不修改外部数据的查询任务上观察每轮截图与动作。保留视频有助于定位等待或重复操作。
+The reference open model is Qwen3-VL 32B Instruct. “Open model” describes the
+weights/license; OpenRouter is only one hosted API route. Readers can use their
+own compatible host instead.
 
-以下命令从本实验目录运行；请先完成上面的环境准备。
+## Install
+
+Use Python 3.11 or newer. The isolated requirement pins the exact Browser Use
+commit audited by the chapter (`ec9277c…`, package version `0.9.5`); the PyPI
+release carrying the same version string is not substituted for that commit:
 
 ```bash
-python main.py --dry-run
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m playwright install chromium
 ```
 
-## 怎样解释结果
+## Hosted open-model route
 
-dry-run 只检查准备路径，不证明模型可以操作页面。真实运行应检查动作合法性、页面状态和答案来源；接口可调用也不等于模型理解了目标。
+```bash
+cp env.example .env
+export OPENROUTER_API_KEY='replace-with-your-key'
 
-## 继续思考
+python main.py --dry-run
+python main.py \
+  --task "Open Google, search for San Francisco weather today, and report the temperature and conditions. Do not sign in or change any external data." \
+  --max-steps 25 \
+  --record-video
+```
 
-如果换模型后点击经常偏移，应先检查图像缩放、坐标约定还是任务提示？怎样逐项排除？
+The default model is `qwen/qwen3-vl-32b-instruct`. Override
+`OPEN_MODEL_MODEL` to select another explicitly open-weight vision model; do
+not describe a proprietary model reached through the same gateway as an open
+model.
 
-## 阅读代码与技术参考
+## Self-hosted or another compatible API
 
-沿下面的顺序阅读代码，可以把前面的概念与实现对应起来：[main.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter6/computer-use-open-model/main.py) → [config.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter6/computer-use-open-model/config.py) → [evidence.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter6/computer-use-open-model/evidence.py)。
+Start a vision-capable OpenAI-compatible server, then configure its URL and
+served model name. The runner does not require an OpenRouter key in this mode:
 
-原有说明保存在[技术参考](REFERENCE.md)中。需要查阅详细配置、英文材料或历史记录时，请从这里继续，并核对记录所使用的数据、模型与环境条件。
+```bash
+export OPEN_MODEL_API_KEY=local
+export OPEN_MODEL_BASE_URL=http://127.0.0.1:8000/v1
+export OPEN_MODEL_MODEL=Qwen/Qwen3-VL-32B-Instruct
+python main.py --dry-run
+python main.py --headless
+```
+
+If the host accepts images but rejects `response_format: json_schema`, set
+`OPEN_MODEL_SCHEMA_MODE=prompt`. This is a compatibility fallback, and its
+reliability should be reported separately because schema adherence can change.
+
+## Retained evidence
+
+Every non-dry run creates a new `runs/open-model-<UTC>/` directory containing:
+
+- `preflight.json`: redacted endpoint, exact model, task, and execution limits;
+- `api-receipts.json`: credential-free request hashes and raw provider responses,
+  including provider-reported model IDs when supplied;
+- `history.json`: ordered model decisions, actions, observations, and results;
+- `screenshots/` plus `screenshots.json`: retained per-step visual observations;
+- `summary.json` or `failure.json`: outcome and honest failure state; and
+- `manifest.json`: SHA-256 and byte size for every retained artifact.
+
+No API-key value is written. The Agent's `done` result is only an
+agent-reported outcome; manuscript-level completion still requires independent
+checking of the weather answer and action trajectory. A dry run, model-list
+lookup, or browser launch alone is not completion evidence.
+
+Validate a retained run against its provider receipts, one-action-per-step
+limit, final browser observation, screenshot hashes, and credential scan:
+
+```bash
+python validate_run.py runs/<run-id> --latest validation/latest.json
+```

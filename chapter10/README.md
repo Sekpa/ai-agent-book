@@ -1,29 +1,32 @@
 # 第 10 章 · 多 Agent 协作
 
-[读本章正文](../book/chapter10.md) · [实验学习指南](../docs/EXPERIMENTS.md)
+> 群体智能高于个体：协作框架、上下文共享/隔离、涌现的「Agent 社会」
 
-本章关注分工带来的收益与协调成本。多个角色需要清楚的上下文、消息和完成条件；增加角色数量本身并不能保证任务更好。
+← [返回主目录](../README.md) · 📖 [读本章正文](../book/chapter10.md)
 
-## 建议的学习顺序
+## 如何阅读实验
 
-1. [比较角色切换与按需加载技能](multi-role-transfer/README.md)：先比较角色切换与技能加载的行为边界。
-2. [用分工与文件组织长文档翻译](book-translation/README.md)：再理解文件如何承载长产物而不占满管理者上下文。
-3. [用游戏状态机协调多角色语音交互](voice-werewolf/README.md)：最后用状态明确的多人任务观察消息与私有信息边界。
+正文 skeleton 先固定消息信封、worker 生命周期、独立审核和“首个已验证成功”结算；实验目录承载完整并发实现：
+
+- **Starter**：从 [parallel-web-research](parallel-web-research/) 运行少量站点，先看 agents.py 的 worker、消息总线和验证；
+- **Builder**：阅读 [multi-role-transfer](multi-role-transfer/) 的共享上下文/Skill 对照，再看 [voice-werewolf](voice-werewolf/) 的法官状态与信息权限；
+- **Maintainer**：检查锁/幂等结算、取消 ack、消息 schema、资源关闭和 manifest。无需首轮逐行阅读浏览器或音频适配器。
 
 ## 配套项目
 
-| 编号 | 项目 | 类型 | 学习内容 |
+| 编号 | 项目 | 类型 | 一句话说明 |
 | :--: | --- | :--: | --- |
-| 10-1 | [比较角色切换与按需加载技能](multi-role-transfer/README.md) | ✅ | 一个任务可能先需要分析，再需要编码或审核。 |
-| 10-2 | [用分工与文件组织长文档翻译](book-translation/README.md) | ✅ | 长书翻译很难把所有原文与译文一直放在管理者上下文中。 |
-| 10-4 | [并行收集资料时怎样保持证据一致](parallel-web-research/README.md) | ✅ | 查阅多个来源可以并行进行，但最后仍需要判断它们是否描述同一个对象。 |
-| 10-5 | [观察记忆、计划与互动如何形成群体行为](generative-agents/README.md) + `generative_agents/` | 📖 | 多个角色在同一个虚拟世界中生活，会产生怎样的交流与计划变化？本项目以 Generative Agents 环境为例，学习个体记忆机制与群体行为之间的联系。 |
-| 10-6 | [用游戏状态机协调多角色语音交互](voice-werewolf/README.md) | ✅ | 狼人杀同时包含公开发言、私有信息、回合规则和多人决策，适合观察多 Agent 协调。 |
+| 10-1 | [multi-role-transfer](multi-role-transfer/) | ✅ | [正式 v2 对照](multi-role-transfer/validation/comparison/runs/exp10-1-qwen35flash-20260809-v2/REPORT.md)完成 30 对任务、12 条边界轨迹、289 份模型回执、31 份 Tavily 回执和 60 次异源盲测；修复 Skill 路径首步跳过 Skill 的 Harness 策略门后，Skill 确定性通过率 15/30、Transfer 2/30，结论与成本/延迟权衡均已由 manifest 固定 |
+| 10-2 | [book-translation](book-translation/) | ✅ | [正式 ARK v4](book-translation/validation/real_20260730T061500Z_v4/evidence.json)在英文版第 1–2 章的 242,090 字节、23 图、14 代码块上完成 26 单元双臂对照：12/12 门禁、39 份原始裁判回执和 37 个溯源 hash 均通过；Manager 上下文缩小 20.43×、token 减少 6.48×且匿名质量 4.654 > 4.481，但慢 6.57%，宽泛术语一致率与 Markdown 精确保真也出现明确负结果 |
+| 10-3 | [autonomous-phone-registration](autonomous-phone-registration/)；固定并发的 [TalkAct 复现记录](talkact-reproduction/) | ✅ / 📖 | 主路径的 [WebRTC raw-v4](autonomous-phone-registration/validation/runs/exp10-3-webrtc-raw-20260731-v4/manifest.json)用真实 ARK 自主工具调用、Playwright、双向 RTP、本机 TTS/Whisper ASR 和一次 localhost 提交跑通 6 字段注册，9/9 行为门禁通过；固定拓扑基线的 [Anthropic-caller 运行](talkact-reproduction/validation/runs/exp10-3-talkact-anthropic-caller-20260803-v2/acceptance.json)保留 16/16 局并通过 17/17 门禁。两类证据分别验证自主启动与并行协作，不合并统计 |
+| 10-4 | [parallel-web-research](parallel-web-research/) | ✅ | [同一次真实验收运行](parallel-web-research/validation/runs/exp10-4-real-receipts-20260730-v2/manifest.json)覆盖 10 站点串并行与 4 会话级联：12/12 门禁通过、实测加速 1.872×、24 份完整浏览器观测、3 份带 response ID/usage 的 ARK 原始响应和 114 条总线事件均由运行时 manifest 绑定；7 个实际源码/输入 hash 与全部 artifact hash 已复核一致，凭据扫描为零 |
+| 10-5 | [Generative Agents 正式复现](generative-agents/) + `generative_agents/` | 📖 | [Qwen 3.7 Flash 正式运行](generative-agents/validation/runs/exp10-5-qwen37flash-20260804-v1/acceptance.json)完成三组各 25 Agent、17,280 步、两个虚拟日的完整社会实验；148,856 份真实 provider 回执零逻辑错误，14/14 门禁通过。自定义气候韧性工作坊未扩散出发起人，是保留的负结果；关闭反思后证据关联反思为零，基线在 25 人盲评中以 17:8 获偏好且四项均分更高 |
+| 10-6 | [voice-werewolf](voice-werewolf/) | ✅ | [同一次 v11 真实验收](voice-werewolf/validation/runs/exp10-6-simulated-user-openrouter-20260803-v11/acceptance_report.json)完成 3 个昼夜投票循环、6 次 LLM 工具→macOS `say`→OpenRouter 原生音频 ASR 回环、信息隔离和规则胜负；四项策略门禁全通过，13 个唯一响应 ID、1,650 音频 token、27 个非空 TTS 事件、动作历史和裁判溯源均保留，独立验证复核 6/6 音频动作边界 |
 
-✅ 表示仓库提供实现入口；📖 表示需要按指南准备外部项目；🚧 表示按正文开展的设计练习。即使有实现入口，模型、数据、浏览器或硬件仍可能需要单独准备。
+## 项目类型说明
 
-## 从演示走向完整实验
-
-先选一项实验，读清楚输入、预期观察和结果解释，再准备该项目的环境。能解释一次运行后，再扩大任务数量或比较不同配置。不要把离线示例、真实模型运行和硬件结果混为同一种证据。
-
-各实验的 README 是教学入口。完整配置、英文资料与历史结果保留在对应的技术参考文档中；本章的原始目录、外部项目版本与运行记录可在[章节技术参考](REFERENCE.md)中查阅。
+| 图标 | 类型 | 含义 |
+| :--: | --- | --- |
+| ✅ | **可独立运行** | 本仓库自带完整代码，配置好 API Key 即可运行 |
+| 📖 | **复现指南** | 依赖需自行 `git clone` 的**外部仓库**（训练框架、评测基准等） |
+| 🚧 | **进行中** | 实现或实验要求的验收证据尚未完整；可能已有可运行代码，但不得视为完整验收 |

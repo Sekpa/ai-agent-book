@@ -1,34 +1,89 @@
-# 从法律原文到可检索的证据
+# Contextual Legal Document Indexing
 
-假设读者问“这项规定适用于谁”，系统只有找到包含适用范围的条文，才有依据回答。这个练习从少量本地法律文档开始，观察原文如何变成检索结果。目标是理解证据的来路，而不是一次导入尽可能多的文件。
+This script implements Anthropic's Contextual Retrieval approach for indexing Chinese legal documents.
 
-## 理解索引过程
+## Key Innovation: Contextual Retrieval
 
-上下文增强会先请语言模型为片段补充背景，再把背景与原文一起用于检索。补充文字不是法规原文，必须与原文分开核对；它也可能引入错误。
+Unlike traditional RAG that loses context when chunking, this script:
+1. Generates contextual descriptions for each chunk using LLM
+2. Prepends context to chunks before indexing
+3. Significantly improves retrieval accuracy
 
-索引成功只说明系统接收了片段，并不说明它能找对证据。检索质量还取决于问题的措辞、切分边界以及检索与重排策略。应把“数据是否入库”和“查询能否找到正确条文”分开检查。
+## Features
 
-## 准备少量材料
+- **Contextual Enhancement**: Uses LLM to generate chunk-specific context
+- **Smart Chunking**: Paragraph-aware boundaries (soft: 1024, hard: 2048 chars)
+- **Comparison Mode**: Run with/without context for performance comparison
+- **Cache Optimization**: Caches context for similar chunks to reduce API costs
+- **Detailed Statistics**: Token usage, generation time, and cost estimation
 
-先完成[本实验的入门教程](README.md)，并按照[检索流水线教程](../retrieval-pipeline/README.md)准备服务。在本目录中检查 `laws` 下的文档，选出一个熟悉的主题，手工记录两个问题及其对应条文。上下文增强版本还需要配置生成背景所用的模型凭据。
+## Prerequisites
 
-脚本默认会清理已有索引，因此应使用专门的教学实例。下面的命令保留已有索引，并把导入范围限制为十篇文档；重复执行仍可能带来重复数据，比较实验应使用分别准备的索引。
+1. Set up your LLM API key:
+   ```bash
+   export MOONSHOT_API_KEY="your_api_key"  # Default: Kimi
+   # Or use other providers:
+   export OPENAI_API_KEY="your_api_key"
+   export SILICONFLOW_API_KEY="your_api_key"
+   ```
 
+2. Ensure retrieval pipeline is running:
+   ```bash
+   # Terminal 1: Dense service
+   python dense_service.py
+   
+   # Terminal 2: Sparse service
+   python sparse_service.py
+   
+   # Terminal 3: Main pipeline
+   python main.py
+   ```
+
+3. The `laws` directory should be linked/present (automatically created as symlink to agentic-rag/laws)
+
+## Usage
+
+### Basic Contextual Indexing
 ```bash
-python index_local_laws_contextual.py --max-docs 10 --no-cleanup
+# Index with contextual enhancement (default)
+python index_local_laws_contextual.py
 ```
 
-## 沿着一条证据检查
+### Advanced Options
+```bash
+# Process limited documents
+python index_local_laws_contextual.py --max-docs 10
 
-1. 打开原文，找出回答第一个问题所需的段落，特别留意定义、例外和适用范围。
-2. 查看切分后的片段，判断这些条件是否仍能一起读到。若使用上下文增强，再核对新增背景是否得到原文支持。
-3. 用原问题和一种不同措辞分别检索，检查返回片段的来源与内容。
-4. 将结果与手工记录的条文比较。若没有命中，先定位是未导入、切分丢失信息，还是检索排序靠后。
+# Process specific categories
+python index_local_laws_contextual.py --categories "宪法" "民法典"
 
-## 怎样解释结果
+# Use different LLM provider
+python index_local_laws_contextual.py --llm-provider openai --llm-model gpt-5.6-luna
 
-命中一个包含关键词的片段，不等于找到充分证据。读者应能沿文档来源回到原文，并说明片段为什么适用于当前问题。小样本用于检查流程；要判断一种索引方式是否更好，需要在相同文档、问题和检索配置下比较更多样本。
+# Custom batch size for indexing
+python index_local_laws_contextual.py --batch-size 20
 
-继续思考：如果两个相邻条文分别给出一般规则和例外，怎样让检索结果同时呈现它们？
+# Skip cleanup
+python index_local_laws_contextual.py --no-cleanup
+```
 
-脚本实现见 [index_local_laws_contextual.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter3/contextual-retrieval/index_local_laws_contextual.py)。分类过滤、服务参数和原始操作说明保存在[技术参考](REFERENCE_LEGAL_INDEXING.md)中。
+## Cost Considerations
+
+Context generation requires LLM API calls:
+- ~150 tokens per chunk for context generation
+- Costs vary by provider (OpenAI: ~$0.03/1K tokens, Others: ~$0.01/1K tokens)
+- Cache reduces costs for duplicate content
+
+Estimate for 288 legal documents:
+- ~3000-5000 chunks total
+- ~450K-750K tokens
+- Cost: $5-15 depending on provider
+
+## Document Store
+
+Maintains `document_store.json` with:
+- Document metadata
+- Chunk statistics
+- Context token usage
+- Generation metrics
+- Indexing timestamps

@@ -1,31 +1,79 @@
-# 在固定工具环境中比较模型行动方式
+# Experiment 7-8: Model action thresholds in a fixed coding harness
 
-[本章实验目录](../README.md) · [相关正文](../../book/chapter7.md) · [技术参考](REFERENCE.md)
+This experiment tests whether an explore-first or implement-first tendency
+follows the **model** when the coding harness is held fixed. Both model
+families receive the same system prompt, user task, repository, tool names,
+JSON schemas, tool results, turn limit, and independent test command. By
+default both are also routed through the same OpenRouter OpenAI-compatible
+endpoint, reducing provider-adapter differences.
 
-有的模型先大量阅读，有的模型很快开始改代码。要判断这种倾向是否来自模型，就需要把工具、任务和提示词尽量保持一致。本实验围绕这个控制变量问题展开。
+The neutral prompt does not require the model to read any number of files,
+produce a plan, edit early, or run tests. The experiment records what the
+model chooses to do.
 
-## 理解实验
+## Tasks and metrics
 
-相同 Harness 向不同模型提供相同仓库与动作接口，再观察首次修改之前的探索过程。探索次数、修改时机与最终正确性分别反映不同侧面，不应把“更快动手”直接当成更高能力。
+Three miniature repositories cover a localized bug, a cross-cutting identity
+change, and a public-contract-sensitive cache fix. Every fixture starts with
+failing tests. Each run is performed in a fresh temporary copy and is
+independently tested at the end.
 
-## 动手之前
+Primary process metrics:
 
-本项目有多条运行路径。先按下文确定要观察的机制，再使用技术参考中对应的环境、数据与命令，避免混用不同路径的配置。 通用环境说明见[实验学习指南](../../docs/EXPERIMENTS.md)。
+- tool calls and elapsed time before the first edit;
+- read/search calls and unique files read before the first edit;
+- whether the first model-triggered test run passes;
+- edits after the first test, total edits, and files changed;
+- final test success, latency, and token usage.
 
-## 一步步观察
+Time to first edit is not a quality score. Interpret it together with
+first-patch acceptance, rework, final success, and total cost.
 
-先阅读固定任务与工具定义，列出两条合理但不同的工作路径。按技术参考配置模型，运行相同条件的多次试验；比较读文件、执行检查和开始修改的时刻。
+## Install and run
 
-## 怎样解释结果
+From the repository root:
 
-如果某模型探索更多但更少返工，额外步骤可能有价值。反过来，大量阅读也可能没有收集到必要信息。分析应结合独立测试结果与总成本。
+```bash
+uv sync --locked --extra ch6
+export OPENROUTER_API_KEY=...
+uv run python chapter7/model-action-threshold/experiment.py \
+  --models openai/gpt-5.6-sol anthropic/claude-sonnet-5 \
+  --trials 3 \
+  --policy neutral \
+  --output chapter7/model-action-threshold/results/my-run
+```
 
-## 继续思考
+The runner alternates model order between trials and checkpoints the campaign
+after every cell. Re-running the same command and output directory resumes
+only the missing model × task × trial cells. `config.json` hashes the system prompt and tool schema;
+`observations.jsonl` retains every trajectory; `summary.json` aggregates the
+metrics; and `manifest.json` hashes those three artifacts.
 
-怎样区分模型主动选择的策略，与提示词无意中鼓励的策略？
+Run the optional harness ablation separately:
 
-## 阅读代码与技术参考
+```bash
+uv run python chapter7/model-action-threshold/experiment.py \
+  --models openai/gpt-5.6-sol anthropic/claude-sonnet-5 \
+  --trials 3 --policy explore-first \
+  --output chapter7/model-action-threshold/results/explore-first
+```
 
-沿下面的顺序阅读代码，可以把前面的概念与实现对应起来：[experiment.py](https://github.com/bojieli/ai-agent-book/blob/main/chapter7/model-action-threshold/experiment.py)。
+Do not merge neutral and explore-first observations into one model comparison.
+The first run estimates the model effect under a neutral harness; comparing
+the two campaigns estimates how much an explicit harness instruction modifies
+that behavior.
 
-原有说明保存在[技术参考](REFERENCE.md)中。需要查阅详细配置、英文材料或历史记录时，请从这里继续，并核对记录所使用的数据、模型与环境条件。
+## Validate the implementation
+
+The offline tests verify path confinement, event-boundary accounting, rework
+measurement, aggregation, and that every fixture starts in the intended
+failing state:
+
+```bash
+python -m unittest discover -s chapter7/model-action-threshold/tests -v
+```
+
+The saved validation campaign in `results/` is considered complete only when
+its manifest contains every requested model × task × trial observation and no
+API errors. Model task failures remain valid experimental outcomes and are not
+silently discarded.
