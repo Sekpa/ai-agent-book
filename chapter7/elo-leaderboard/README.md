@@ -1,5 +1,153 @@
 # Elo Rating Leaderboard from Pairwise Comparisons
 
+评价生成答案时，人们有时更容易判断两者谁更好，而不是分别给出绝对分数。本实验从两两偏好数据出发，学习怎样估计相对能力以及排名的不确定性。
+
+[English](#english)
+
+建议按以下顺序阅读：[理解问题与方法](#learning-0) → [准备环境与输入](#learning-1) → [按照步骤完成实验](#learning-2) → [分析结果与形成判断](#learning-3) → [阅读实现与继续探索](#learning-4)。
+
+<a id="learning-0"></a>
+
+## 理解问题与方法
+
+Elo 根据对局结果逐步调整分数，Bradley–Terry 模型用胜率关系估计相对强度。两者都依赖比较数据覆盖；很少交手的模型，其排名通常更不稳定。
+
+该项目围绕**配对比较（pairwise）数据**构建 Elo/Bradley-Terry 排名流程，目标是用公开的模型对战投票数据（重点是 Chatbot Arena）形成可复现的模型排行榜与可视化分析。
+
+### 实验导向背景
+
+Elo 本质上用于“成对对局中的胜率”学习相对能力，最初用于棋类，现被广泛用于语言模型两两对比的排序。
+
+### 关键特性
+
+- 高性能实现：NumPy + Numba JIT + 并行处理。
+- 真实数据分析：接入大规模公开投票数据。
+- 胜率推断：可预测任意两个模型的胜率。
+- 历史追踪：可输出时间序列排行快照。
+- 交互可视化：支持静态图与动态动画。
+- 可扩展：可承接较大规模比赛集合。
+
+### 数学原理
+
+与 AndroidWorld 风格一致，评分来自 Bradley-Terry：
+
+```
+P(A 胜过 B) = 1 / (1 + 10^((R_B - R_A) / 400))
+```
+
+单步更新：
+
+```
+R_A_new = R_A + K * (S_A - E_A)
+```
+
+### 三类对战源
+
+- `simulate`：合成对战（有真值），用于验证是否恢复出正确排序。
+- `arena`：离线加载 `arena_data.json`（约 2GB）；可用 `--sample` 抽样。
+- `llm`：调用 LLM 判断对战，带位置偏差消除；支持 `anthropic`、`openrouter` 和 `auto`。
+
+`auto` 会优先使用 Anthropic key，失败时回退 OpenRouter；位置消偏策略与 A/B/tie 判定和后端无关。
+
+### 两种核心评分方法
+
+- Bradley-Terry（推荐）：更稳定，适合正式排行。
+- Online Elo：更贴近课程里的机制讲解，速度快但对顺序敏感。
+
+### 注意
+
+- `--sample`、`--pipeline`、`--top-n` 等参数见命令行帮助。
+- 建议先看 CLI 输出再对照 `leaderboard` 与可视化文件确认理解。
+
+<a id="learning-1"></a>
+
+## 准备环境与输入
+
+本项目包含多条路径。先选定要观察的流程，再阅读对应的依赖和输入要求。下文保留了各条路径的完整配置，运行时应保持模型、文件路径与所选入口一致。
+
+### 安装与运行
+
+```bash
+# 在仓库根目录使用统一的第 6 章环境
+uv sync --locked --python 3.12 --extra ch6
+
+# 切换目录前先激活环境：
+# macOS/Linux：
+source .venv/bin/activate
+# Windows PowerShell：.\.venv\Scripts\Activate.ps1
+# Windows cmd：.venv\Scripts\activate.bat
+
+# 未安装 uv 时可用 pip 兜底：
+# python -m pip install -e ".[ch6]"
+
+cd chapter7/elo-leaderboard
+
+# 迁移期间仍支持单项目兼容路径：
+# python -m pip install -r requirements.txt
+```
+
+<a id="learning-2"></a>
+
+## 按照步骤完成实验
+
+先阅读 CLI 中的离线演示入口，用小规模比较理解胜负如何改变分数。随后按下文准备公开投票数据，比较不同估计方式，并用重采样观察排名区间。
+
+### 测试
+
+```bash
+# 在仓库根目录安装测试工具：
+uv sync --locked --python 3.12 --extra ch6 --extra dev
+
+# 切换目录前先激活环境：
+source .venv/bin/activate
+
+# 未安装 uv 时可用 pip 兜底：
+# python -m pip install -e ".[ch6,dev]"
+
+cd chapter7/elo-leaderboard
+python -m pytest tests
+```
+
+### 命令行（`cli.py`）
+
+`cli.py` 是统一入口：
+- `battle`：生成/采集两两对战
+- `elo`：计算评级
+- `leaderboard`：出榜
+- `pipeline`：端到端一条龙
+
+```bash
+python cli.py --help
+python cli.py battle --help
+python cli.py   # 等价于 python cli.py pipeline
+```
+
+### 使用示例
+
+核心示例同上英文学：
+- `python cli.py battle ...`
+- `python cli.py elo ...`
+- `python cli.py leaderboard ...`
+- `python demo.py` / `python benchmark.py`
+
+<a id="learning-3"></a>
+
+## 分析结果与形成判断
+
+分数差不是绝对能力差，排名也会随任务分布和投票者偏好变化。应检查比较图是否连通、样本是否均衡，以及相邻名次是否有足够证据区分。
+
+### 检查自己的解释
+
+两个模型的排名区间大量重叠时，榜单应该怎样呈现这种不确定性？
+
+<a id="learning-4"></a>
+
+## 阅读实现与继续探索
+
+### 项目结构
+
+同上方英文学段落中的文件列表。
+
 ## English
 
 **Experiment 7-7**: Building Model Leaderboard from Pairwise Comparison Data
@@ -672,115 +820,3 @@ This project is part of the AI Agent practical training course materials.
 For questions or issues, please refer to the course materials or discussion forums.
 
 ---
-
-## 中文
-
-该项目围绕**配对比较（pairwise）数据**构建 Elo/Bradley-Terry 排名流程，目标是用公开的模型对战投票数据（重点是 Chatbot Arena）形成可复现的模型排行榜与可视化分析。
-
-### 实验导向背景
-
-Elo 本质上用于“成对对局中的胜率”学习相对能力，最初用于棋类，现被广泛用于语言模型两两对比的排序。
-
-### 关键特性
-
-- 高性能实现：NumPy + Numba JIT + 并行处理。
-- 真实数据分析：接入大规模公开投票数据。
-- 胜率推断：可预测任意两个模型的胜率。
-- 历史追踪：可输出时间序列排行快照。
-- 交互可视化：支持静态图与动态动画。
-- 可扩展：可承接较大规模比赛集合。
-
-### 数学原理
-
-与 AndroidWorld 风格一致，评分来自 Bradley-Terry：
-
-```
-P(A 胜过 B) = 1 / (1 + 10^((R_B - R_A) / 400))
-```
-
-单步更新：
-
-```
-R_A_new = R_A + K * (S_A - E_A)
-```
-
-### 安装与运行
-
-```bash
-# 在仓库根目录使用统一的第 6 章环境
-uv sync --locked --python 3.12 --extra ch6
-
-# 切换目录前先激活环境：
-# macOS/Linux：
-source .venv/bin/activate
-# Windows PowerShell：.\.venv\Scripts\Activate.ps1
-# Windows cmd：.venv\Scripts\activate.bat
-
-# 未安装 uv 时可用 pip 兜底：
-# python -m pip install -e ".[ch6]"
-
-cd chapter7/elo-leaderboard
-
-# 迁移期间仍支持单项目兼容路径：
-# python -m pip install -r requirements.txt
-```
-
-### 测试
-
-```bash
-# 在仓库根目录安装测试工具：
-uv sync --locked --python 3.12 --extra ch6 --extra dev
-
-# 切换目录前先激活环境：
-source .venv/bin/activate
-
-# 未安装 uv 时可用 pip 兜底：
-# python -m pip install -e ".[ch6,dev]"
-
-cd chapter7/elo-leaderboard
-python -m pytest tests
-```
-
-### 命令行（`cli.py`）
-
-`cli.py` 是统一入口：
-- `battle`：生成/采集两两对战
-- `elo`：计算评级
-- `leaderboard`：出榜
-- `pipeline`：端到端一条龙
-
-```bash
-python cli.py --help
-python cli.py battle --help
-python cli.py   # 等价于 python cli.py pipeline
-```
-
-### 三类对战源
-
-- `simulate`：合成对战（有真值），用于验证是否恢复出正确排序。
-- `arena`：离线加载 `arena_data.json`（约 2GB）；可用 `--sample` 抽样。
-- `llm`：调用 LLM 判断对战，带位置偏差消除；支持 `anthropic`、`openrouter` 和 `auto`。
-
-`auto` 会优先使用 Anthropic key，失败时回退 OpenRouter；位置消偏策略与 A/B/tie 判定和后端无关。
-
-### 两种核心评分方法
-
-- Bradley-Terry（推荐）：更稳定，适合正式排行。
-- Online Elo：更贴近课程里的机制讲解，速度快但对顺序敏感。
-
-### 项目结构
-
-同上方英文学段落中的文件列表。
-
-### 使用示例
-
-核心示例同上英文学：
-- `python cli.py battle ...`
-- `python cli.py elo ...`
-- `python cli.py leaderboard ...`
-- `python demo.py` / `python benchmark.py`
-
-### 注意
-
-- `--sample`、`--pipeline`、`--top-n` 等参数见命令行帮助。
-- 建议先看 CLI 输出再对照 `leaderboard` 与可视化文件确认理解。

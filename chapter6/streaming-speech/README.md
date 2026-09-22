@@ -1,12 +1,30 @@
 # 实验 6-5：Qwen2-Audio 递增前缀模拟流式感知
 
+一句话还没说完时，语音系统可能已经得到部分信息。本实验逐渐扩大音频前缀，观察转写与声学判断怎样随新片段变化，并与等待端点后再识别的路径比较。
+
+[English](#english)
+
+建议按以下顺序阅读：[理解问题与方法](#learning-0) → [准备环境与输入](#learning-1) → [按照步骤完成实验](#learning-2) → [分析结果与形成判断](#learning-3)。
+
+<a id="learning-0"></a>
+
+## 理解问题与方法
+
+这里每次把从开头到当前时刻的音频重新送入模型，属于递增前缀的模拟方式。它能研究何时得到有用信息，但会重复编码，不能直接当作具有持续内部状态的原生流式实现。
+
 本目录对应正文实验 6-5。运行器与已归档证据沿用历史标识 `exp6-4-*`，复核时按原路径读取。
 
 本项目实际运行 `Qwen/Qwen2-Audio-7B-Instruct`：每收到一个新块，就把 `[0:t]` 的完整累积音频再次送入 Qwen2-Audio，输出当前 transcript 和声学事件。它不是 Whisper 替代实现，也不会把这种全量重编码称作真流式。
 
 对照组是传统 600ms 端点 VAD + 开源 Whisper。三类场景均被测量：正常对话、含 900ms 中途停顿的长句、混入粉红背景噪声的对话。证据记录每个前缀的模型原始输出、单块延迟、最终 CER、事件 token，以及 VAD 分段点、Whisper 推理时长和 CER。
 
-## 安装
+<a id="learning-1"></a>
+
+## 准备环境与输入
+
+先核对本地模型、依赖与硬件条件。首次运行可能下载模型；确认模型能够加载后，再观察本实验关心的行为，避免把环境错误与模型表现混在一起。
+
+### 安装
 
 ```bash
 # From the repository root: use the shared Chapter 6 core environment
@@ -61,7 +79,19 @@ python run_official_experiment.py --run-id exp6-4-qwen2audio-whisper-provenance-
 checkpoint、Qwen2-Audio snapshot 的每个文件（包括 6.56GB 权重）、13 个原始前缀
 输出、运行日志和独立 acceptance 文件。
 
-## 已验证结果
+<a id="learning-2"></a>
+
+## 按照步骤完成实验
+
+先听完整样例并阅读参考转写，再按下文准备本地音频模型。选择正常、长停顿或背景噪声中的一种场景，逐个前缀查看输出，记录第一次正确判断出现在什么位置。
+
+<a id="learning-3"></a>
+
+## 分析结果与形成判断
+
+部分转写后来可能被修正；越早输出不一定越准确。比较时同时看文字错误率、单次处理时间和停止判断，尤其检查长停顿是否造成错误分段。
+
+### 已有运行结果
 
 当前 canonical 记录是 [`validation/runs/exp6-4-qwen2audio-whisper-provenance-20260730-v3/manifest.json`](validation/runs/exp6-4-qwen2audio-whisper-provenance-20260730-v3/manifest.json)。
 2026-07-30 在 Apple Silicon 上严格复跑 `mlx-community/Qwen2-Audio-7B-Instruct-4bit`；8/8
@@ -76,6 +106,10 @@ pytest -q
 ```
 
 ---
+
+### 检查自己的解释
+
+如果前缀越长处理越慢，怎样区分模型本身的实时能力与反复重编码带来的开销？
 
 ## English
 

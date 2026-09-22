@@ -1,3 +1,54 @@
+# 在相同提示下比较持续预训练与指令微调
+
+持续预训练改变模型对领域文本的适应，指令微调进一步改变它对任务要求的响应。这里使用固定提示比较检查点，学习分别观察语言流畅性、事实内容和指令遵循。少量示例用于理解行为，不是完整能力榜单。
+
+## 确认比较的模型与数据
+
+先完成[训练教程](README.md)，检查 `lora_model_pretrained` 与 `lora_model` 中实际保存的模型。默认评估 `lora_model`，`--pretrained` 则固定选择前一个目录；若使用自定义 `--model_path`，不要同时加 `--pretrained`，否则后者会覆盖路径选择。
+
+评估需要可加载模型的 CUDA 环境。两次运行采用相同提示、上下文长度和输出长度，并记录模型、适配器与量化条件。训练材料与用于判断迁移的评估样本应分离。
+
+## 先做确定性的逐项比较
+
+从本实验目录执行：
+
+```bash
+python evaluate_model.py --model_path lora_model_pretrained --max_new_tokens 150
+python evaluate_model.py --model_path lora_model --max_new_tokens 150
+```
+
+脚本包括韩语、英语的百科式和指令式提示。百科式提示先看主题能否自然延续、事实是否有依据；指令式提示先看是否执行了要求，再看答案内容。保留所有提示的输出，不只展示最流畅的一条。
+
+## 再观察采样带来的变化
+
+```bash
+python evaluate_model.py --model_path lora_model --use_sampling --temperature 0.7 --top_p 0.9
+```
+
+`--use_sampling` 开启随机采样，`--temperature` 与 `--top_p` 仅在这种模式中使用。重复生成可以观察变化范围；不要把两次不同采样的差异全部归因于训练阶段。
+
+| 参数 | 当前脚本的含义 |
+| --- | --- |
+| `--model_path` | 自定义模型目录，默认 `lora_model`。 |
+| `--pretrained` | 选择 `lora_model_pretrained`。 |
+| `--max_seq_length` | 加载的最大序列长度，默认 2048。 |
+| `--max_new_tokens` | 生成长度上限，默认 150。 |
+| `--load_in_4bit` | 当前实现默认开启，且使用 `store_true`。 |
+| `--use_sampling` | 使用采样，默认不启用。 |
+| `--temperature` / `--top_p` | 采样参数，默认 0.7 / 0.9。 |
+
+当前 CLI 没有关闭 4-bit 加载的布尔开关：下方早期英文示例中的 `--load_in_4bit False` 与 `store_true` 解析方式不匹配，不应直接照抄。需要全精度对照时，应先调整该参数接口或在代码中明确传入加载设置，再记录改变后的条件。
+
+## 解读输出并排查问题
+
+颜色与流式显示帮助区分提示和输出，本身不属于评价指标。可以按原文的手工评价维度逐项记录语言、相关性、完整性与事实依据，再增加独立样本。韩语表达变好而英语或指令遵循变差时，应同时记录，不能只保留正向结果。
+
+路径不存在时先核对训练是否保存了目标目录。显存不足时检查量化、序列长度和生成上限；输出过短时既要检查长度限制，也要检查模型是否提前生成结束符。更高温度只改变采样分布，不保证更有创造力或更准确。
+
+下面完整保留了原始选项、六组测试说明、逐项比较与输出示例、排错路径和性能记录，便于结合源代码继续学习。
+
+## English
+
 # Korean Mistral Model Evaluation Guide
 
 This guide explains how to use the evaluation script to test your trained Korean Mistral models.

@@ -1,5 +1,112 @@
 # Sesame CSM (1B) TTS - Text-to-Speech Fine-tuning
 
+除了读出文字，语音模型还可能需要表达笑声、叹息等事件。本项目围绕 Sesame CSM 的微调与推理，学习控制标签和实际音频之间如何建立联系。
+
+[English](#english)
+
+建议按以下顺序阅读：[理解问题与方法](#learning-0) → [准备环境与输入](#learning-1) → [按照步骤完成实验](#learning-2) → [分析结果与形成判断](#learning-3)。
+
+<a id="learning-0"></a>
+
+## 理解问题与方法
+
+标签只有与声音稳定对应时才有学习价值。模型接收的序列格式、说话人信息与音频编码必须一致；推理时遗漏其中一项，就可能与训练分布不匹配。
+
+### Sesame CSM（1B）TTS：文本转语音微调
+
+#### 文件
+
+项目包含训练脚本、单条推理脚本、批量推理脚本、依赖文件以及数据处理相关配置。
+
+#### 安装
+
+```bash
+# Sesame 请使用单独的项目本地环境。
+# 本项目固定 transformers==4.52.3，而根目录 ch7 extra 为
+# MultilingualReasoning 使用 transformers>=4.55；单一环境无法安全同时满足两者。
+# 从仓库根目录开始：
+cd chapter8/sesame
+python -m venv .venv-sesame
+source .venv-sesame/bin/activate
+# Windows PowerShell：.\.venv-sesame\Scripts\Activate.ps1
+# Windows cmd：.venv-sesame\Scripts\activate.bat
+
+python -m pip install -r requirements.txt
+
+# Conda 用户可安装 ffmpeg
+conda install -c conda-forge ffmpeg
+```
+
+请根据本机 CUDA 版本安装匹配的 PyTorch，并确认 FFmpeg 可以正常处理音频。
+
+#### 训练
+
+训练脚本加载 Sesame CSM 1B 基础模型和语音数据集，通过 LoRA 进行参数高效微调。运行前请检查模型名称、数据集、输出目录、批量大小和训练轮数。
+
+#### 推理
+
+##### 单条文本推理
+
+推理脚本支持无上下文生成、使用数据集样本作为声音上下文、仅加载基础模型、自定义说话人 ID、更长生成长度以及 4-bit 量化。
+
+##### 批量推理
+
+批量脚本可从 JSON 文件或逐行文本文件读取输入，并为每条文本生成独立音频。
+
+#### 参数
+
+常用参数包括模型与适配器路径、输入文本、输出路径、说话人 ID、上下文样本索引、最大生成长度、温度和量化开关。批量模式还支持输入文件、输出目录和失败重试设置。
+
+#### 模型信息
+
+CSM 是一类上下文语音模型，可利用文本、说话人标识和参考语音生成具有一致音色的语音。本实验围绕 1B 参数版本进行微调。
+
+#### 高级用法
+
+##### 使用上下文保持声音一致
+
+可选择训练数据中的音频作为上下文。训练与推理应使用一致的上下文格式和说话人 ID；英文示例使用数据集索引 3。
+
+#### 显存需求
+
+实际显存取决于序列长度、上下文音频、批量大小和精度。4-bit 量化可降低推理显存，训练时可使用梯度累积与梯度检查点。
+
+#### 故障排查
+
+##### 生成期间出现 AssertionError
+
+确保说话人 ID、上下文列表和文本列表的长度及嵌套结构符合模型接口，不要把单个值误传为错误形状的批量输入。
+
+##### 显存不足
+
+减小批量大小、上下文长度或最大生成长度，启用量化，并关闭其他占用 GPU 的进程。
+
+#### 资源与许可
+
+模型和相关项目链接见英文部分。使用前请核对上游模型、数据集和代码许可。
+
+<a id="learning-1"></a>
+
+## 准备环境与输入
+
+阅读训练命令前，先确认基础模型、数据文件、适配器输出位置和显存要求。把数据准备、训练和评估看作三个独立步骤：前一步得到的文件，是后一步需要核对的输入。
+
+<a id="learning-2"></a>
+
+## 按照步骤完成实验
+
+先按下文建立独立环境，检查一个训练样本中的文本、控制标签与音频。完成短训练后，用未见句子分别带标签和不带标签生成声音，再比较事件是否在合适位置出现。
+
+<a id="learning-3"></a>
+
+## 分析结果与形成判断
+
+不要只看输出 WAV 是否可播放。应检查文字内容、事件类型、出现时机和说话人一致性；标签被模型忽略与音频解码失败是不同问题。
+
+### 检查自己的解释
+
+如果训练集中每个叹息都位于句首，模型能否学会在句中表达？怎样补充数据？
+
 ## English
 
 This directory contains scripts for fine-tuning and running inference with the Sesame CSM text-to-speech model using Unsloth.
@@ -251,78 +358,3 @@ audio_values = model.generate(
 This project uses the Unsloth library and Sesame CSM model. Please refer to their respective licenses.
 
 ---
-
-## 中文
-
-# Sesame CSM（1B）TTS：文本转语音微调
-
-## 文件
-
-项目包含训练脚本、单条推理脚本、批量推理脚本、依赖文件以及数据处理相关配置。
-
-## 安装
-
-```bash
-# Sesame 请使用单独的项目本地环境。
-# 本项目固定 transformers==4.52.3，而根目录 ch7 extra 为
-# MultilingualReasoning 使用 transformers>=4.55；单一环境无法安全同时满足两者。
-# 从仓库根目录开始：
-cd chapter8/sesame
-python -m venv .venv-sesame
-source .venv-sesame/bin/activate
-# Windows PowerShell：.\.venv-sesame\Scripts\Activate.ps1
-# Windows cmd：.venv-sesame\Scripts\activate.bat
-
-python -m pip install -r requirements.txt
-
-# Conda 用户可安装 ffmpeg
-conda install -c conda-forge ffmpeg
-```
-
-请根据本机 CUDA 版本安装匹配的 PyTorch，并确认 FFmpeg 可以正常处理音频。
-
-## 训练
-
-训练脚本加载 Sesame CSM 1B 基础模型和语音数据集，通过 LoRA 进行参数高效微调。运行前请检查模型名称、数据集、输出目录、批量大小和训练轮数。
-
-## 推理
-
-### 单条文本推理
-
-推理脚本支持无上下文生成、使用数据集样本作为声音上下文、仅加载基础模型、自定义说话人 ID、更长生成长度以及 4-bit 量化。
-
-### 批量推理
-
-批量脚本可从 JSON 文件或逐行文本文件读取输入，并为每条文本生成独立音频。
-
-## 参数
-
-常用参数包括模型与适配器路径、输入文本、输出路径、说话人 ID、上下文样本索引、最大生成长度、温度和量化开关。批量模式还支持输入文件、输出目录和失败重试设置。
-
-## 模型信息
-
-CSM 是一类上下文语音模型，可利用文本、说话人标识和参考语音生成具有一致音色的语音。本实验围绕 1B 参数版本进行微调。
-
-## 高级用法
-
-### 使用上下文保持声音一致
-
-可选择训练数据中的音频作为上下文。训练与推理应使用一致的上下文格式和说话人 ID；英文示例使用数据集索引 3。
-
-## 显存需求
-
-实际显存取决于序列长度、上下文音频、批量大小和精度。4-bit 量化可降低推理显存，训练时可使用梯度累积与梯度检查点。
-
-## 故障排查
-
-### 生成期间出现 AssertionError
-
-确保说话人 ID、上下文列表和文本列表的长度及嵌套结构符合模型接口，不要把单个值误传为错误形状的批量输入。
-
-### 显存不足
-
-减小批量大小、上下文长度或最大生成长度，启用量化，并关闭其他占用 GPU 的进程。
-
-## 资源与许可
-
-模型和相关项目链接见英文部分。使用前请核对上游模型、数据集和代码许可。

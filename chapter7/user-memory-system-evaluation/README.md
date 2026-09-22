@@ -1,3 +1,132 @@
+# 对照记忆系统的完整处理链
+
+评价记忆系统时，只比较几段预先写好的回答无法反映实际存储与检索。本实验在相同对话材料上运行不同记忆配置，检查从构建记忆到生成回答的全过程。
+
+[English](#english)
+
+建议按以下顺序阅读：[理解问题与方法](#learning-0) → [准备环境与输入](#learning-1) → [按照步骤完成实验](#learning-2) → [分析结果与形成判断](#learning-3)。
+
+<a id="learning-0"></a>
+
+## 理解问题与方法
+
+JSON 卡片、RAG 和混合路径使用不同表示与检索方式。每个用例应独立建立状态，避免上一题的信息泄漏到下一题。模型裁判还需要校准，才能知道分数与人工判断是否一致。
+
+本目录对应实验 7-4 与 7-11，实际构建并运行三种记忆系统及组件矩阵，不再对预先写好的
+回答文件打分。默认读取第三章同一套 60 个测试用例，逐条记录任务成功率、步数、工具调用、
+延迟、token、成本覆盖、top-5 检索指标和结构化 Rubric。`default_config.yaml` 是正文要求的
+BGE-M3 / OpenAI / 豆包嵌入、含无 reranker 基线、以及多主模型的完整矩阵；
+`live_config.yaml` 只是已验证账号的真实 API 冒烟子集。实验 7-3 的五维 Rubric（四个评分维度
++ 幻觉否决）位于第三章共用评估框架，并由本目录直接复用。
+
+当前状态必须按实验分别读取：实验 7-4 已由
+`results/full_7_4_60_cases_costed.json` 完成 60 用例 × 3 系统共 180/180 条真实轨迹和完整成本核算；
+实验 7-11 的 4×3×2×60 全矩阵活动已完成：`results/full_7_11_60_case_matrix.json` 收录 60 用例 × 24 单元
+共 1,440/1,440 条真实轨迹，零错误、零未定价用量，检索/任务指标与交互分析完整（顶层与 completion
+状态均为 `complete`），并由 `validation/verify_full_matrix_20260731.py` 独立复核通过。
+
+矩阵在后端就绪度 9/9 的如实记录替代方案下执行（见上文“Backend substitutions”）。
+
+### 先比较记忆系统，再比较系统组件
+
+实验 7-4 对相同的 60 个用例分别构建三种系统。Advanced JSON Cards 用模型抽取来源、人物关系、精确事实、时间状态和歧义，所有卡片直接进入回答上下文；RAG 将原始对话按完整轮次切分，强制调用 `search_memory`，可重排后用 top-5 片段回答；Hybrid 只常驻明确标成 `memory_tier: core` 的卡片，其他事实保留在原对话中，由 Agent 决定是否检索。
+
+实验 7-11 再组合嵌入、重排器与主模型。固定问题基准的 `fixed_query_*` 指标用于减少主模型改写查询造成的干扰；真实 Agent 轨迹另行测量，允许初次检索后最多三次追问，因此工具次数和步数确实反映运行差别。
+
+<a id="learning-1"></a>
+
+## 准备环境与输入
+
+本项目包含多条路径。先选定要观察的流程，再阅读对应的依赖和输入要求。下文保留了各条路径的完整配置，运行时应保持模型、文件路径与所选入口一致。
+
+### 配置完整矩阵与小规模子集
+
+`default_config.yaml` 描述完整矩阵，`live_config.yaml` 是已验证账号可用的开发子集。不要用子集结果代替完整矩阵。先安装依赖、复制配置并设置环境变量；报告中只保存脱敏状态，不保存 Key。
+
+```bash
+cd chapter7/user-memory-system-evaluation
+python -m pip install -r requirements.txt
+cp env.example .env
+```
+
+2026-07-31 的完整运行记录了四项替换：余额不足的 SiliconFlow BGE-M3 改由 OpenRouter 提供同一模型；无额度的 OpenAI embedding 同样改走 OpenRouter；Ark 的 Doubao embedding 端点不可用，改为 `qwen/qwen3-embedding-8b`；不可访问的 BGE cross-encoder 改为 `doubao-semantic` LLM 重排。
+
+最后一项改变了重排器类型，因此结果实际比较的是无重排、豆包 LLM 重排和 Kimi LLM 重排，不能声称完成了 cross-encoder 对照。
+
+运行前可只检查完整配置的端点。这会真实调用聊天、嵌入和重排路径，并记录脱敏错误：
+
+```bash
+python probe_backends.py --config default_config.yaml \
+  --output results/full_matrix_backend_readiness.json
+```
+
+<a id="learning-2"></a>
+
+## 按照步骤完成实验
+
+先选一条案例，阅读对话、问题与评分依据。配置后运行单题路径，检查实际建立的记忆和回答时取出的内容。理解后再比较多种配置，最后汇总不同层次案例的成绩。
+
+### 用单个用例检查流程，再运行全量
+
+先用带 `--test-id` 的命令观察一条用例：原始记忆如何写入、如何检索、怎样回答，以及评分证据来自哪里。这些结果标记为 `smoke`。
+
+```bash
+python experiment.py 7-4 --config live_config.yaml \
+  --test-id layer1_01_bank_account \
+  --output results/live_7_4_layer1.json
+
+python experiment.py 7-11 --config live_config.yaml \
+  --test-id layer1_01_bank_account \
+  --output results/live_7_11_matrix_layer1.json
+```
+
+确认流程后，再运行默认的 60 个用例。以下分别对应系统比较和组件矩阵：
+
+```bash
+python experiment.py 7-4 --config default_config.yaml \
+  --output results/experiment_7_4.json
+
+python experiment.py 7-11 --config default_config.yaml \
+  --output results/experiment_7_11.json
+```
+
+长任务可用 `run_full.py`。它先保存单用例检查点再计数，恢复有效检查点，并只合并直接运行记录；readiness 文件减少对已知不可用端点的重复调用，但对应矩阵单元仍以 `status: error` 保留。
+
+```bash
+python run_full.py 7-4 --config live_config.yaml --workers 4 \
+  --output results/full_7_4_60_cases.json
+
+python run_full.py 7-11 --config default_config.yaml --workers 4 \
+  --readiness results/full_matrix_backend_readiness.json \
+  --output results/full_7_11_60_case_matrix.json
+```
+
+<a id="learning-3"></a>
+
+## 分析结果与形成判断
+
+一套系统得分低，可能是提取丢失、检索失败或回答误用。沿完整轨迹定位，比直接更换回答模型更有依据。裁判不一致的案例应回到评分规则核对。
+
+### 同时读任务分数、检索指标与成本覆盖
+
+共享评分器看到权威原始材料，分别评价 precision、recall、reasoning、proactivity，并单独给出幻觉否决。成功要求前三项至少达到 good（3/4）且无幻觉否决，`reward` 仍保留部分得分。检索用 hit@5、recall@5 与 MRR 描述；`interaction_analysis` 再分析重排器在不同嵌入和主模型条件下是否有价值，以及主模型是否在检索不完整时仍答对。
+
+提供商错误单独记为 `status: error`，不计作模型任务失败。只有 60 个独立用例和全部配置单元完成，`run_scope` 才是 `full`；筛选运行是 `smoke`，全量调用中仍有提供商错误则是 `incomplete-full-suite`。成本还应检查 `unpriced_tokens`，未知价格不等于零成本。
+
+已有 7-4 完整记录包含 180/180 条轨迹，也提供了 7-3 的 180 条结构化判读；`build_73_evidence.py` 只核对并派生证据，不调用模型或修改分数。7-11 的完整记录为 4×3×2×60，共 1,440 条轨迹，保存了后端替换、成本覆盖与独立矩阵检查。完整文件清单和每个历史运行的链接仍保留在本文中，可逐项追溯。
+
+离线测试：
+
+```bash
+pytest -q ../../chapter3/user-memory-evaluation/test_structured_rubric.py test_experiment.py
+```
+
+### 检查自己的解释
+
+两个系统答案相同，但一个读取了大量无关历史，评价中还应包含哪些成本指标？
+
+## English
+
 # Experiments 7-4 and 7-11: end-to-end user-memory evaluation
 
 This companion runs memory systems. It does not score canned response files.
@@ -201,19 +330,3 @@ Experiment 7-11 is **complete**: the full 4×3×2×60 matrix campaign finished w
 coverage, trajectory cleanliness, metric finiteness, pricing coverage, and the
 interaction analysis (ALL CHECKS PASSED).
 None of the earlier blockers changed the completed 7-4 status.
-
-## 中文说明
-
-本目录对应实验 7-4 与 7-11，实际构建并运行三种记忆系统及组件矩阵，不再对预先写好的
-回答文件打分。默认读取第三章同一套 60 个测试用例，逐条记录任务成功率、步数、工具调用、
-延迟、token、成本覆盖、top-5 检索指标和结构化 Rubric。`default_config.yaml` 是正文要求的
-BGE-M3 / OpenAI / 豆包嵌入、含无 reranker 基线、以及多主模型的完整矩阵；
-`live_config.yaml` 只是已验证账号的真实 API 冒烟子集。实验 7-3 的五维 Rubric（四个评分维度
-+ 幻觉否决）位于第三章共用评估框架，并由本目录直接复用。
-
-当前状态必须按实验分别读取：实验 7-4 已由
-`results/full_7_4_60_cases_costed.json` 完成 60 用例 × 3 系统共 180/180 条真实轨迹和完整成本核算；
-实验 7-11 的 4×3×2×60 全矩阵活动已完成：`results/full_7_11_60_case_matrix.json` 收录 60 用例 × 24 单元
-共 1,440/1,440 条真实轨迹，零错误、零未定价用量，检索/任务指标与交互分析完整（顶层与 completion
-状态均为 `complete`），并由 `validation/verify_full_matrix_20260731.py` 独立复核通过。
-矩阵在后端就绪度 9/9 的如实记录替代方案下执行（见上文“Backend substitutions”）。

@@ -1,11 +1,503 @@
 # Perception Tools MCP Server / 感知工具 MCP 服务器
 
+模型要读取文件或查询资料，需要把现实中的数据变成结构化工具结果。本实验从 MCP 感知工具出发，学习客户端怎样发现工具、调用工具并理解返回值。
+
+[English](#english)
+
+建议按以下顺序阅读：[理解问题与方法](#learning-0) → [准备环境与输入](#learning-1) → [按照步骤完成实验](#learning-2) → [分析结果与形成判断](#learning-3) → [阅读实现与继续探索](#learning-4) → [排查问题与查阅资料](#learning-5)。
+
+<a id="learning-0"></a>
+
+## 理解问题与方法
+
+MCP 提供统一的交互协议，但不同工具的数据来源和依赖仍然不同。工具声明说明参数格式，执行结果说明实际观察到了什么。服务启动成功、目录可见和一次调用成功是三个逐步验证的环节。
+
+为 AI Agent 提供多种感知与数据获取能力的综合 MCP（Model Context Protocol）服务器。
+
+### 功能
+
+> **✨ 多数功能无需 API Key！** 基于免费开放 API，开箱即用。
+
+#### 搜索工具
+- **网络搜索**：DuckDuckGo（免费，无需 API Key）
+- **知识库搜索**：搜索本地文档集合
+- **文件下载**：从 URL 下载，带安全检查
+
+#### 多模态理解工具
+- **网页阅读**：抽取文本与链接
+- **文档阅读**：PDF、DOCX、PPTX
+- **图像解析**：解析与分析图像
+- **视频解析**：抽取视频元数据
+
+#### 文件系统工具
+- **文件阅读**：支持编码
+- **Grep 搜索**：正则匹配文件内容
+- **文本摘要**：总结长文本
+
+#### 公开数据源
+- **天气**：[Open-Meteo](https://open-meteo.com/)（免费，无需 Key）
+- **股价**：Yahoo Finance（免费，无需 Key）
+- **加密货币**：[CoinGecko](https://www.coingecko.com/)（免费，无需 Key）
+- **汇率换算**：货币转换（免费，无需 Key）
+- **地点搜索**：[Nominatim (OpenStreetMap)](https://nominatim.openstreetmap.org/)（免费，无需 Key）
+- **POI 搜索**：[Overpass API (OpenStreetMap)](https://overpass-api.de/)（免费，无需 Key）
+- **Wikipedia**：检索维基条目（免费，无需 Key）
+- **ArXiv**：学术论文检索（免费，无需 Key）
+- **Wayback Machine**：历史网页存档（免费，无需 Key）
+- **X 帖子搜索**：通过 Xquik 获取结构化帖子与翻页游标（可选，按量计费）
+
+#### 私有数据源
+- **Google Calendar**：查询日历事件
+- **Notion**：搜索 Notion 工作区
+
+### 可用工具
+
+#### 搜索工具
+
+##### `web_search`
+使用 DuckDuckGo 搜索（免费，无需 API Key）。
+
+参数：
+- `query` (str)：搜索查询
+- `num_results` (int, default=5)：结果数（1-10）
+- `region` (str, default="wt-wt")：区域代码（如 `"us-en"`、`"uk-en"`、全球 `"wt-wt"`）
+
+##### `download`
+从 URL 下载文件。
+
+参数：
+- `url` (str)：下载地址
+- `output_path` (str)：本地保存路径
+- `overwrite` (bool, default=False)：是否覆盖已有文件
+- `timeout` (int, default=180)：超时秒数
+
+##### `knowledge_base_search`
+搜索本地知识库目录。
+
+参数：
+- `query` (str)：搜索查询
+- `knowledge_base_path` (str)：知识库目录路径
+- `top_k` (int, default=5)：返回条数
+
+#### 多模态理解工具
+
+##### `webpage_reader`
+读取并抽取网页内容。
+
+参数：
+- `url` (str)：网页 URL
+- `extract_text` (bool, default=True)：是否抽取文本
+- `extract_links` (bool, default=False)：是否抽取链接
+
+##### `document_reader`
+读取文档（PDF、DOCX、PPTX）。
+
+参数：
+- `file_path` (str)：文件路径或 URL
+- `extract_images` (bool, default=False)：是否抽取图片
+
+##### `image_parser`
+解析与分析图像。
+
+参数：
+- `image_path` (str)：图像路径或 URL
+- `use_llm` (bool, default=True)：是否用 LLM 分析
+
+> **视觉 LLM Key / OpenRouter 兜底**：AI 图像/视频分析
+> （`analyze_image_ai` / `analyze_video_ai`）在设置了 `OPENAI_API_KEY` 时使用它。
+> 若缺失但设置了 `OPENROUTER_API_KEY`，则透明走 OpenRouter
+> （`base_url=https://openrouter.ai/api/v1`，模型映射为 `provider/model`）。
+> 可用 `PERCEPTION_VISION_MODEL` 覆盖模型。
+> （本地 Whisper 转写仍需 `OPENAI_API_KEY`——OpenRouter 无音频转写 API。）
+
+##### `video_parser`
+解析并抽取视频元数据。
+
+参数：
+- `video_path` (str)：视频路径或 URL
+- `extract_frames` (bool, default=False)：是否抽取样帧
+- `frame_interval` (int, default=30)：抽帧间隔
+
+#### 文件系统工具
+
+##### `file_reader`
+读取文件内容。
+
+参数：
+- `file_path` (str)：文件路径
+- `encoding` (str, default="utf-8")：编码
+- `max_length` (int, default=50000)：最大字符数
+
+##### `grep`
+在文件中搜索模式（类 grep）。
+
+参数：
+- `pattern` (str)：正则表达式
+- `directory` (str)：搜索目录
+- `file_pattern` (str, default="*")：文件模式（如 `*.py`）
+- `recursive` (bool, default=True)：是否递归
+- `case_sensitive` (bool, default=False)：是否区分大小写
+- `max_results` (int, default=100)：最大结果数
+
+##### `text_summarizer`
+总结长文本。
+
+参数：
+- `text` (str)：待总结文本
+- `max_length` (int, default=500)：目标摘要长度
+- `use_llm` (bool, default=True)：是否用 LLM 总结
+
+#### 公开数据源工具
+
+##### `weather`
+Open-Meteo 当前天气（免费，无需 Key）。
+
+参数：
+- `location` (str)：城市名（自动地理编码）
+- `latitude` (float, optional)：纬度
+- `longitude` (float, optional)：经度
+
+##### `stock_price`
+Yahoo Finance 股价与行情（免费，无需 Key）。
+
+参数：
+- `symbol` (str)：股票代码（如 AAPL、TSLA、GOOGL）
+- `interval` (str, default="1d")：数据间隔
+
+##### `crypto_price`
+CoinGecko 加密货币价格（免费，无需 Key）。
+
+参数：
+- `symbol` (str)：符号或 ID（如 bitcoin、ethereum、btc、eth）
+- `vs_currency` (str, default="usd")：目标货币
+
+##### `currency_converter`
+货币换算。
+
+参数：
+- `amount` (float)：金额
+- `from_currency` (str)：源货币（如 USD）
+- `to_currency` (str)：目标货币（如 EUR）
+
+##### `wikipedia_search`
+搜索 Wikipedia 并取摘要。
+
+参数：
+- `query` (str)：搜索查询
+- `language` (str, default="en")：语言
+- `sentences` (int, default=5)：摘要句数
+
+##### `arxiv_search`
+搜索 ArXiv 论文。
+
+参数：
+- `query` (str)：搜索查询
+- `max_results` (int, default=5)：最大条数
+- `sort_by` (str, default="relevance")：排序方式
+
+##### `wayback_search`
+搜索 Wayback Machine 历史快照。
+
+参数：
+- `url` (str)：目标 URL
+- `year` (int, optional)：按年过滤
+- `limit` (int, default=10)：最大快照数
+
+##### `xquik_search_posts`
+通过 Xquik 搜索 X 帖子，API Key 不会暴露给 Agent。
+
+参数：
+- `query` (str)：X 搜索查询、Tweet ID 或 X 状态 URL
+- `limit` (int, default=10)：最大帖子数（1-100）
+- `cursor` (str, optional)：上一次响应返回的不透明游标
+- `query_type` (str, default="Latest")：`Latest` 或 `Top`
+
+需要 `XQUIK_API_KEY` 与有效 Xquik 订阅。每返回 1 条帖子消耗 1 credit。
+使用 `next_cursor` 翻页时请保持原查询不变。
+
+##### `location_search`
+Nominatim（OpenStreetMap）地点搜索（免费，无需 Key）。
+
+参数：
+- `query` (str)：地点查询（如 "Eiffel Tower"、"New York"、"Tokyo"）
+- `limit` (int, default=5)：最大结果数（1-50）
+- `country_code` (str, optional)：国家代码过滤（如 "us"、"gb"、"fr"）
+
+##### `poi_search`
+Overpass API 附近 POI 搜索（免费，无需 Key）。
+
+参数：
+- `query` (str)：POI 类型（如 "restaurant"、"cafe"、"hospital"、"atm"、"hotel"）
+- `latitude` (float)：中心纬度
+- `longitude` (float)：中心经度
+- `radius` (int, default=1000)：搜索半径（米）
+- `limit` (int, default=10)：最大结果数
+
+#### 私有数据源工具
+
+##### `calendar_events`
+从 Google Calendar 获取事件。
+
+参数：
+- `start_date` (str, optional)：开始日期（ISO）
+- `end_date` (str, optional)：结束日期（ISO）
+- `calendar_id` (str, default="primary")：日历 ID
+- `max_results` (int, default=10)：最大事件数
+
+##### `notion_search`
+搜索 Notion 工作区。
+
+参数：
+- `query` (str)：搜索查询
+- `database_id` (str, optional)：指定数据库 ID
+- `page_size` (int, default=10)：每页条数
+
+### 架构
+
+项目遵循 SOLID，模块化组织：
+
+```
+perception-tools/
+├── src/
+│   ├── main.py                  # MCP server entry point
+│   ├── base.py                  # Base models and utilities
+│   ├── search_tools.py          # Search functionality
+│   ├── multimodal_tools.py      # Document/media processing
+│   ├── filesystem_tools.py      # File operations
+│   ├── public_data_tools.py     # Public APIs
+│   ├── private_data_tools.py    # Private data sources
+│   └── xquik_tools.py           # X 帖子搜索（按量计费）
+├── requirements.txt             # Python dependencies
+├── env.example                  # Environment variables template
+└── README.md                    # This file
+```
+
+### 错误处理
+
+所有工具返回统一的 `ActionResponse`：
+
+```json
+{
+  "success": true/false,
+  "message": "Result data or error message",
+  "metadata": {
+    "additional": "context information"
+  }
+}
+```
+
+<a id="learning-1"></a>
+
+## 准备环境与输入
+
+先从本地示例开始。依赖安装可能需要联网，但下面标明的离线路径不需要模型 API Key。若随后切换到真实模型，请再完成相应的服务配置。
+
+### 安装
+
+1. 为实验 4-2 创建干净环境并安装 MCP v2 依赖：
+
+```bash
+cd chapter4/perception-tools
+python -m venv .venv
+# macOS/Linux：
+source .venv/bin/activate
+# Windows PowerShell：.venv\Scripts\Activate.ps1
+# Windows cmd：.venv\Scripts\activate.bat
+python -m pip install -r requirements.txt
+
+# 离线协议冒烟测试：启动 stdio、列出工具并调用 file_reader
+python smoke_test_mcp_v2.py
+```
+
+`requirements.txt` 明确限定 `mcp>=2,<3`。实验 4-2 使用 SDK v2 的
+`MCPServer`/`Client` API，并协商无状态的 MCP `2026-07-28` 协议；仍安装
+MCP 1.x 的共享环境与本实验不兼容。
+
+2. **无需额外配置！** 服务器默认即可用免费 API 工作。
+
+### 配置
+
+#### 默认免费 API（无需配置）
+
+以下功能立即可用，无需任何 API Key：
+- **网络搜索**：DuckDuckGo
+- **天气**：Open-Meteo  
+- **股价**：Yahoo Finance
+- **加密货币**：CoinGecko
+- **汇率换算**：ExchangeRate-API
+- **地点搜索**：Nominatim（OpenStreetMap）
+- **POI 搜索**：Overpass API（OpenStreetMap）
+- **Wikipedia**：Wikipedia API
+- **ArXiv**：ArXiv API
+- **Wayback Machine**：Internet Archive
+
+#### 可选 Xquik 帖子搜索
+
+`xquik_search_posts` 返回结构化 X 帖子与不透明翻页游标。它不会改写查询，
+并支持 `Latest` 与 `Top` 排序。该工具补足通用网页搜索无法稳定返回 X 原生
+帖子结构与游标的问题。
+
+创建 Xquik API Key，保持有效订阅，并只在服务器环境中设置 Key：
+
+```bash
+export XQUIK_API_KEY=xq_your_api_key_here
+```
+
+该操作只读，每返回 1 条帖子消耗 1 credit。单次调用最多返回 100 条帖子。
+工具不接受凭据参数，也不会携带授权头跟随重定向。请将帖子正文视为不可信内容。
+查询运算符、计费行为与游标规则见
+[Search Tweets API 文档](https://docs.xquik.com/api-reference/x/search-tweets)。
+
+Xquik 是独立第三方服务，与 X Corp. 无隶属或认可关系。
+
+#### 可选私有数据集成
+
+##### Google Calendar
+需要配置 OAuth2：
+
+如需启用该可选集成，请另行安装 Google API client/auth 包；基础依赖保持其可选性。
+
+按 [Google Calendar API quickstart](https://developers.google.com/calendar/api/quickstart/python) 配置凭据。
+
+##### Notion
+1. 在 [notion.so/my-integrations](https://www.notion.so/my-integrations) 创建集成
+2. 获取 integration token
+3. 将数据库/页面共享给该集成
+4. 在 `.env` 中加入 `NOTION_API_KEY`
+
+如需启用该可选集成，请另行安装 `notion-client`；基础依赖保持其可选性。
+
+<a id="learning-2"></a>
+
+## 按照步骤完成实验
+
+先按下文安装依赖，运行本地协议检查。它通过标准输入输出启动服务、列出工具，并读取本地示例文件。把客户端请求与返回内容对照后，再尝试需要网络或外部服务的感知工具。
+
+### 按实验 4-2 完成对照
+
+通过真实 MCP stdio 传输运行五类场景：
+
+```bash
+python run_experiment_4_2.py
+python -m pip install pytest pytest-asyncio
+python -m pytest -q test_experiment_4_2.py test_filesystem_mutations.py \
+  test_real_experiment_4_2_evidence.py test_expanded_catalog.py
+```
+
+保留的 2026 年 7 月 30 日收据属于旧版证据：它早于 SDK v2，且没有记录
+`mcp` 包版本或实际协商的协议版本，因此不能证明当前迁移已通过。新的运行器会在
+`catalog_receipt.json` 中同时记录 `mcp_sdk_version` 和 `protocol_version`，
+并且只有 SDK 2.x 与协议 `2026-07-28` 才能通过 catalog gate。
+
+### 使用
+
+#### 运行 MCP 服务器
+
+```bash
+cd src
+python main.py
+```
+
+服务器使用 stdio 传输，适合接入 MCP 客户端。
+
+#### 命令行接口（`cli.py`）
+
+除了以 MCP stdio 协议对外服务，仓库根目录提供了一个统一的命令行入口
+`cli.py`，无需 MCP 客户端即可直接列出、查看、调用和演示各类感知工具。
+工具按第四章「感知工具」的五类场景组织：搜索 / 多模态理解 / 文件系统 /
+公开数据源 / 私有数据源（当前共 54 个工具）。
+
+```bash
+# 查看帮助（中文）
+python cli.py --help
+
+# 按五类列出全部感知工具（可用 --category 只看某一类）
+python cli.py list
+python cli.py list --category filesystem
+
+# 查看某个工具的参数签名与调用示例
+python cli.py info weather
+
+# 直接调用某个工具，参数以 key=value 形式传入，结果为标准 ActionResponse JSON
+python cli.py run grep 'pattern=async def' directory=src 'file_pattern=*.py'
+python cli.py run currency_converter amount=100 from_currency=USD to_currency=CNY
+python cli.py run xquik_search_posts 'query=agent tooling' limit=10
+
+# 运行端到端演示：串联「本地资料 + 外部信息」的研究助手 Agent 感知流程
+python cli.py demo            # 完整演示（含联网步骤）
+python cli.py demo --offline  # 离线演示（只跑文件系统 / 本地知识库等不联网步骤）
+```
+
+说明：
+
+- 每个工具都是异步函数，返回统一的 `ActionResponse`（JSON）；CLI 负责运行事件
+  循环、解析 JSON 并友好打印。
+- 工具按需惰性导入：`list` / `info` / 离线 `demo` 在缺少可选依赖（如 `whisper`、
+  `waybackpy`）时仍可正常工作，只有真正调用相关工具时才导入对应模块。
+- 需要联网的工具在 `list` 中标注「联网」，需要授权/API Key 的工具标注了对应说明。
+
+#### 与 MCP 客户端联用
+
+在 MCP 客户端（如 Claude Desktop）中配置：
+
+```json
+{
+  "mcpServers": {
+    "perception-tools": {
+      "command": "python",
+      "args": ["/path/to/perception-tools/src/main.py"]
+    }
+  }
+}
+```
+
+<a id="learning-3"></a>
+
+## 分析结果与形成判断
+
+本地文件读取成功只能证明这条协议路径可用。扩展到网络工具时，还要区分无结果、权限不足、服务错误与解析错误，不能把所有失败都当作“模型没找到”。
+
+### 检查自己的解释
+
+一个工具返回空列表时，Agent 还需要哪些状态信息，才能决定重试还是承认没有结果？
+
+<a id="learning-4"></a>
+
+## 阅读实现与继续探索
+
+### 项目说明
+
 > Companion code for *AI Agents in Depth*, Chapter 4 — **Experiment 4-2 ★★**. MCP perception tools: search, multimodal, filesystem, public/private data. Most free APIs need no key.  
 > 配套《深入理解 AI Agent》第 4 章 **实验 4-2 ★★**。感知 MCP 工具：搜索、多模态、文件系统、公开/私有数据。多数免费 API 无需 Key。
 
 ← [Chapter 4 index / 返回第 4 章目录](../README.md)
 
 ---
+
+<a id="learning-5"></a>
+
+## 排查问题与查阅资料
+
+### 贡献
+
+欢迎贡献。请确保：
+1. 代码遵循 KISS、DRY、SOLID
+2. 工具返回统一 ActionResponse
+3. 妥善错误处理与日志
+4. 为新工具补充文档
+
+### 许可证
+
+本项目为 AI Agent 训练营材料的一部分。
+
+---
+
+## Notes / 说明
+
+- Prefer `python cli.py demo --offline` for a first run without network-heavy steps.  
+- 首次可先跑 `python cli.py demo --offline`，避免重度联网步骤。  
+- Most public-data tools need no API key; vision LLM and Whisper paths may need keys.  
+- 多数公开数据工具无需 Key；视觉 LLM 与 Whisper 路径可能需要 Key。
 
 ## English
 
@@ -475,453 +967,3 @@ Contributions are welcome! Please ensure:
 This project is part of the AI Agent training camp materials.
 
 ---
-
-## 中文
-
-为 AI Agent 提供多种感知与数据获取能力的综合 MCP（Model Context Protocol）服务器。
-
-### 功能
-
-> **✨ 多数功能无需 API Key！** 基于免费开放 API，开箱即用。
-
-#### 搜索工具
-- **网络搜索**：DuckDuckGo（免费，无需 API Key）
-- **知识库搜索**：搜索本地文档集合
-- **文件下载**：从 URL 下载，带安全检查
-
-#### 多模态理解工具
-- **网页阅读**：抽取文本与链接
-- **文档阅读**：PDF、DOCX、PPTX
-- **图像解析**：解析与分析图像
-- **视频解析**：抽取视频元数据
-
-#### 文件系统工具
-- **文件阅读**：支持编码
-- **Grep 搜索**：正则匹配文件内容
-- **文本摘要**：总结长文本
-
-#### 公开数据源
-- **天气**：[Open-Meteo](https://open-meteo.com/)（免费，无需 Key）
-- **股价**：Yahoo Finance（免费，无需 Key）
-- **加密货币**：[CoinGecko](https://www.coingecko.com/)（免费，无需 Key）
-- **汇率换算**：货币转换（免费，无需 Key）
-- **地点搜索**：[Nominatim (OpenStreetMap)](https://nominatim.openstreetmap.org/)（免费，无需 Key）
-- **POI 搜索**：[Overpass API (OpenStreetMap)](https://overpass-api.de/)（免费，无需 Key）
-- **Wikipedia**：检索维基条目（免费，无需 Key）
-- **ArXiv**：学术论文检索（免费，无需 Key）
-- **Wayback Machine**：历史网页存档（免费，无需 Key）
-- **X 帖子搜索**：通过 Xquik 获取结构化帖子与翻页游标（可选，按量计费）
-
-#### 私有数据源
-- **Google Calendar**：查询日历事件
-- **Notion**：搜索 Notion 工作区
-
-### 安装
-
-1. 为实验 4-2 创建干净环境并安装 MCP v2 依赖：
-
-```bash
-cd chapter4/perception-tools
-python -m venv .venv
-# macOS/Linux：
-source .venv/bin/activate
-# Windows PowerShell：.venv\Scripts\Activate.ps1
-# Windows cmd：.venv\Scripts\activate.bat
-python -m pip install -r requirements.txt
-
-# 离线协议冒烟测试：启动 stdio、列出工具并调用 file_reader
-python smoke_test_mcp_v2.py
-```
-
-`requirements.txt` 明确限定 `mcp>=2,<3`。实验 4-2 使用 SDK v2 的
-`MCPServer`/`Client` API，并协商无状态的 MCP `2026-07-28` 协议；仍安装
-MCP 1.x 的共享环境与本实验不兼容。
-
-2. **无需额外配置！** 服务器默认即可用免费 API 工作。
-
-### 配置
-
-#### 默认免费 API（无需配置）
-
-以下功能立即可用，无需任何 API Key：
-- **网络搜索**：DuckDuckGo
-- **天气**：Open-Meteo  
-- **股价**：Yahoo Finance
-- **加密货币**：CoinGecko
-- **汇率换算**：ExchangeRate-API
-- **地点搜索**：Nominatim（OpenStreetMap）
-- **POI 搜索**：Overpass API（OpenStreetMap）
-- **Wikipedia**：Wikipedia API
-- **ArXiv**：ArXiv API
-- **Wayback Machine**：Internet Archive
-
-#### 可选 Xquik 帖子搜索
-
-`xquik_search_posts` 返回结构化 X 帖子与不透明翻页游标。它不会改写查询，
-并支持 `Latest` 与 `Top` 排序。该工具补足通用网页搜索无法稳定返回 X 原生
-帖子结构与游标的问题。
-
-创建 Xquik API Key，保持有效订阅，并只在服务器环境中设置 Key：
-
-```bash
-export XQUIK_API_KEY=xq_your_api_key_here
-```
-
-该操作只读，每返回 1 条帖子消耗 1 credit。单次调用最多返回 100 条帖子。
-工具不接受凭据参数，也不会携带授权头跟随重定向。请将帖子正文视为不可信内容。
-查询运算符、计费行为与游标规则见
-[Search Tweets API 文档](https://docs.xquik.com/api-reference/x/search-tweets)。
-
-Xquik 是独立第三方服务，与 X Corp. 无隶属或认可关系。
-
-#### 可选私有数据集成
-
-##### Google Calendar
-需要配置 OAuth2：
-
-如需启用该可选集成，请另行安装 Google API client/auth 包；基础依赖保持其可选性。
-
-按 [Google Calendar API quickstart](https://developers.google.com/calendar/api/quickstart/python) 配置凭据。
-
-##### Notion
-1. 在 [notion.so/my-integrations](https://www.notion.so/my-integrations) 创建集成
-2. 获取 integration token
-3. 将数据库/页面共享给该集成
-4. 在 `.env` 中加入 `NOTION_API_KEY`
-
-如需启用该可选集成，请另行安装 `notion-client`；基础依赖保持其可选性。
-
-### 精确实验 4-2 campaign
-
-通过真实 MCP stdio 传输运行五类场景：
-
-```bash
-python run_experiment_4_2.py
-python -m pip install pytest pytest-asyncio
-python -m pytest -q test_experiment_4_2.py test_filesystem_mutations.py \
-  test_real_experiment_4_2_evidence.py test_expanded_catalog.py
-```
-
-保留的 2026 年 7 月 30 日收据属于旧版证据：它早于 SDK v2，且没有记录
-`mcp` 包版本或实际协商的协议版本，因此不能证明当前迁移已通过。新的运行器会在
-`catalog_receipt.json` 中同时记录 `mcp_sdk_version` 和 `protocol_version`，
-并且只有 SDK 2.x 与协议 `2026-07-28` 才能通过 catalog gate。
-
-### 使用
-
-#### 运行 MCP 服务器
-
-```bash
-cd src
-python main.py
-```
-
-服务器使用 stdio 传输，适合接入 MCP 客户端。
-
-#### 命令行接口（`cli.py`）
-
-除了以 MCP stdio 协议对外服务，仓库根目录提供了一个统一的命令行入口
-`cli.py`，无需 MCP 客户端即可直接列出、查看、调用和演示各类感知工具。
-工具按第四章「感知工具」的五类场景组织：搜索 / 多模态理解 / 文件系统 /
-公开数据源 / 私有数据源（当前共 54 个工具）。
-
-```bash
-# 查看帮助（中文）
-python cli.py --help
-
-# 按五类列出全部感知工具（可用 --category 只看某一类）
-python cli.py list
-python cli.py list --category filesystem
-
-# 查看某个工具的参数签名与调用示例
-python cli.py info weather
-
-# 直接调用某个工具，参数以 key=value 形式传入，结果为标准 ActionResponse JSON
-python cli.py run grep 'pattern=async def' directory=src 'file_pattern=*.py'
-python cli.py run currency_converter amount=100 from_currency=USD to_currency=CNY
-python cli.py run xquik_search_posts 'query=agent tooling' limit=10
-
-# 运行端到端演示：串联「本地资料 + 外部信息」的研究助手 Agent 感知流程
-python cli.py demo            # 完整演示（含联网步骤）
-python cli.py demo --offline  # 离线演示（只跑文件系统 / 本地知识库等不联网步骤）
-```
-
-说明：
-
-- 每个工具都是异步函数，返回统一的 `ActionResponse`（JSON）；CLI 负责运行事件
-  循环、解析 JSON 并友好打印。
-- 工具按需惰性导入：`list` / `info` / 离线 `demo` 在缺少可选依赖（如 `whisper`、
-  `waybackpy`）时仍可正常工作，只有真正调用相关工具时才导入对应模块。
-- 需要联网的工具在 `list` 中标注「联网」，需要授权/API Key 的工具标注了对应说明。
-
-#### 与 MCP 客户端联用
-
-在 MCP 客户端（如 Claude Desktop）中配置：
-
-```json
-{
-  "mcpServers": {
-    "perception-tools": {
-      "command": "python",
-      "args": ["/path/to/perception-tools/src/main.py"]
-    }
-  }
-}
-```
-
-### 可用工具
-
-#### 搜索工具
-
-##### `web_search`
-使用 DuckDuckGo 搜索（免费，无需 API Key）。
-
-参数：
-- `query` (str)：搜索查询
-- `num_results` (int, default=5)：结果数（1-10）
-- `region` (str, default="wt-wt")：区域代码（如 `"us-en"`、`"uk-en"`、全球 `"wt-wt"`）
-
-##### `download`
-从 URL 下载文件。
-
-参数：
-- `url` (str)：下载地址
-- `output_path` (str)：本地保存路径
-- `overwrite` (bool, default=False)：是否覆盖已有文件
-- `timeout` (int, default=180)：超时秒数
-
-##### `knowledge_base_search`
-搜索本地知识库目录。
-
-参数：
-- `query` (str)：搜索查询
-- `knowledge_base_path` (str)：知识库目录路径
-- `top_k` (int, default=5)：返回条数
-
-#### 多模态理解工具
-
-##### `webpage_reader`
-读取并抽取网页内容。
-
-参数：
-- `url` (str)：网页 URL
-- `extract_text` (bool, default=True)：是否抽取文本
-- `extract_links` (bool, default=False)：是否抽取链接
-
-##### `document_reader`
-读取文档（PDF、DOCX、PPTX）。
-
-参数：
-- `file_path` (str)：文件路径或 URL
-- `extract_images` (bool, default=False)：是否抽取图片
-
-##### `image_parser`
-解析与分析图像。
-
-参数：
-- `image_path` (str)：图像路径或 URL
-- `use_llm` (bool, default=True)：是否用 LLM 分析
-
-> **视觉 LLM Key / OpenRouter 兜底**：AI 图像/视频分析
-> （`analyze_image_ai` / `analyze_video_ai`）在设置了 `OPENAI_API_KEY` 时使用它。
-> 若缺失但设置了 `OPENROUTER_API_KEY`，则透明走 OpenRouter
-> （`base_url=https://openrouter.ai/api/v1`，模型映射为 `provider/model`）。
-> 可用 `PERCEPTION_VISION_MODEL` 覆盖模型。
-> （本地 Whisper 转写仍需 `OPENAI_API_KEY`——OpenRouter 无音频转写 API。）
-
-##### `video_parser`
-解析并抽取视频元数据。
-
-参数：
-- `video_path` (str)：视频路径或 URL
-- `extract_frames` (bool, default=False)：是否抽取样帧
-- `frame_interval` (int, default=30)：抽帧间隔
-
-#### 文件系统工具
-
-##### `file_reader`
-读取文件内容。
-
-参数：
-- `file_path` (str)：文件路径
-- `encoding` (str, default="utf-8")：编码
-- `max_length` (int, default=50000)：最大字符数
-
-##### `grep`
-在文件中搜索模式（类 grep）。
-
-参数：
-- `pattern` (str)：正则表达式
-- `directory` (str)：搜索目录
-- `file_pattern` (str, default="*")：文件模式（如 `*.py`）
-- `recursive` (bool, default=True)：是否递归
-- `case_sensitive` (bool, default=False)：是否区分大小写
-- `max_results` (int, default=100)：最大结果数
-
-##### `text_summarizer`
-总结长文本。
-
-参数：
-- `text` (str)：待总结文本
-- `max_length` (int, default=500)：目标摘要长度
-- `use_llm` (bool, default=True)：是否用 LLM 总结
-
-#### 公开数据源工具
-
-##### `weather`
-Open-Meteo 当前天气（免费，无需 Key）。
-
-参数：
-- `location` (str)：城市名（自动地理编码）
-- `latitude` (float, optional)：纬度
-- `longitude` (float, optional)：经度
-
-##### `stock_price`
-Yahoo Finance 股价与行情（免费，无需 Key）。
-
-参数：
-- `symbol` (str)：股票代码（如 AAPL、TSLA、GOOGL）
-- `interval` (str, default="1d")：数据间隔
-
-##### `crypto_price`
-CoinGecko 加密货币价格（免费，无需 Key）。
-
-参数：
-- `symbol` (str)：符号或 ID（如 bitcoin、ethereum、btc、eth）
-- `vs_currency` (str, default="usd")：目标货币
-
-##### `currency_converter`
-货币换算。
-
-参数：
-- `amount` (float)：金额
-- `from_currency` (str)：源货币（如 USD）
-- `to_currency` (str)：目标货币（如 EUR）
-
-##### `wikipedia_search`
-搜索 Wikipedia 并取摘要。
-
-参数：
-- `query` (str)：搜索查询
-- `language` (str, default="en")：语言
-- `sentences` (int, default=5)：摘要句数
-
-##### `arxiv_search`
-搜索 ArXiv 论文。
-
-参数：
-- `query` (str)：搜索查询
-- `max_results` (int, default=5)：最大条数
-- `sort_by` (str, default="relevance")：排序方式
-
-##### `wayback_search`
-搜索 Wayback Machine 历史快照。
-
-参数：
-- `url` (str)：目标 URL
-- `year` (int, optional)：按年过滤
-- `limit` (int, default=10)：最大快照数
-
-##### `xquik_search_posts`
-通过 Xquik 搜索 X 帖子，API Key 不会暴露给 Agent。
-
-参数：
-- `query` (str)：X 搜索查询、Tweet ID 或 X 状态 URL
-- `limit` (int, default=10)：最大帖子数（1-100）
-- `cursor` (str, optional)：上一次响应返回的不透明游标
-- `query_type` (str, default="Latest")：`Latest` 或 `Top`
-
-需要 `XQUIK_API_KEY` 与有效 Xquik 订阅。每返回 1 条帖子消耗 1 credit。
-使用 `next_cursor` 翻页时请保持原查询不变。
-
-##### `location_search`
-Nominatim（OpenStreetMap）地点搜索（免费，无需 Key）。
-
-参数：
-- `query` (str)：地点查询（如 "Eiffel Tower"、"New York"、"Tokyo"）
-- `limit` (int, default=5)：最大结果数（1-50）
-- `country_code` (str, optional)：国家代码过滤（如 "us"、"gb"、"fr"）
-
-##### `poi_search`
-Overpass API 附近 POI 搜索（免费，无需 Key）。
-
-参数：
-- `query` (str)：POI 类型（如 "restaurant"、"cafe"、"hospital"、"atm"、"hotel"）
-- `latitude` (float)：中心纬度
-- `longitude` (float)：中心经度
-- `radius` (int, default=1000)：搜索半径（米）
-- `limit` (int, default=10)：最大结果数
-
-#### 私有数据源工具
-
-##### `calendar_events`
-从 Google Calendar 获取事件。
-
-参数：
-- `start_date` (str, optional)：开始日期（ISO）
-- `end_date` (str, optional)：结束日期（ISO）
-- `calendar_id` (str, default="primary")：日历 ID
-- `max_results` (int, default=10)：最大事件数
-
-##### `notion_search`
-搜索 Notion 工作区。
-
-参数：
-- `query` (str)：搜索查询
-- `database_id` (str, optional)：指定数据库 ID
-- `page_size` (int, default=10)：每页条数
-
-### 架构
-
-项目遵循 SOLID，模块化组织：
-
-```
-perception-tools/
-├── src/
-│   ├── main.py                  # MCP server entry point
-│   ├── base.py                  # Base models and utilities
-│   ├── search_tools.py          # Search functionality
-│   ├── multimodal_tools.py      # Document/media processing
-│   ├── filesystem_tools.py      # File operations
-│   ├── public_data_tools.py     # Public APIs
-│   ├── private_data_tools.py    # Private data sources
-│   └── xquik_tools.py           # X 帖子搜索（按量计费）
-├── requirements.txt             # Python dependencies
-├── env.example                  # Environment variables template
-└── README.md                    # This file
-```
-
-### 错误处理
-
-所有工具返回统一的 `ActionResponse`：
-
-```json
-{
-  "success": true/false,
-  "message": "Result data or error message",
-  "metadata": {
-    "additional": "context information"
-  }
-}
-```
-
-### 贡献
-
-欢迎贡献。请确保：
-1. 代码遵循 KISS、DRY、SOLID
-2. 工具返回统一 ActionResponse
-3. 妥善错误处理与日志
-4. 为新工具补充文档
-
-### 许可证
-
-本项目为 AI Agent 训练营材料的一部分。
-
----
-
-## Notes / 说明
-
-- Prefer `python cli.py demo --offline` for a first run without network-heavy steps.  
-- 首次可先跑 `python cli.py demo --offline`，避免重度联网步骤。  
-- Most public-data tools need no API key; vision LLM and Whisper paths may need keys.  
-- 多数公开数据工具无需 Key；视觉 LLM 与 Whisper 路径可能需要 Key。

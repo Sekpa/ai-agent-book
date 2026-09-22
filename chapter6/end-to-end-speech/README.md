@@ -1,5 +1,17 @@
 # 实验 6-6：本地运行 MiniCPM-o 4.5 端到端全模态语音
 
+两段语音可以说完全相同的字，却有不同语速或表达方式。先转成文字的系统可能丢掉这些信息。本实验让同一个模型分别直接读取音频和只读取自己的转写。
+
+[English](#english)
+
+建议按以下顺序阅读：[理解问题与方法](#learning-0) → [准备环境与输入](#learning-1) → [按照步骤完成实验](#learning-2) → [分析结果与形成判断](#learning-3)。
+
+<a id="learning-0"></a>
+
+## 理解问题与方法
+
+两条路径尽量保持模型一致，只改变进入问答阶段的信息形式。语义题主要依赖字面内容，副语言题还依赖声音特征。这样的对照有助于判断音频输入究竟增加了什么信息。
+
 本目录对应正文实验 6-6。运行器与已归档证据沿用历史标识 `exp6-5-*`，复核时按原路径读取。
 
 本实验属于正文的“**范式二 · 端到端全模态模型（Omni）**”，不属于后文的“边想边说”方案。它用同一个开放权重模型 MiniCPM-o 4.5 比较两条路径：
@@ -9,7 +21,7 @@
 
 另加一条 audio-to-audio 检查，确认模型不仅能听，还能在本地生成 24kHz 语音。实验关闭 `enable_thinking`，因此结果不能用来声称复现 Step-Audio R1 的 MPS、Speak-First、Think-First 或“边想边说”。
 
-## 实验设计
+### 实验设计
 
 `fixtures/cases.json` 固定四条小型合成语音：两道只依赖语义的口述算术题，以及文字完全相同、语速分别为快和慢的两条副语言题。每条都运行端到端与自级联两臂。小样本只用于验证机制与本地可运行性，不是模型排行榜；合成音也不能替代真人、多口音与噪声数据集。
 
@@ -23,7 +35,13 @@
 
 固定模型为 `openbmb/MiniCPM-o-4_5@1f761131fa83f5ed3cd6f2f22b225c4501d154fa`。官方实现由 SigLip2、Whisper-medium、CosyVoice2 与 Qwen3-8B 组成，总计约 9B 参数；本实验只初始化音频与 TTS 分支，不初始化视觉分支。
 
-## 安装
+<a id="learning-1"></a>
+
+## 准备环境与输入
+
+先核对本地模型、依赖与硬件条件。首次运行可能下载模型；确认模型能够加载后，再观察本实验关心的行为，避免把环境错误与模型表现混在一起。
+
+### 安装
 
 上游明确测试 Python 3.10、`transformers==4.51.0`、PyTorch 2.3–2.8。该组合与仓库共享环境里的其他实验可能冲突，因此这里有意使用独立虚拟环境：
 
@@ -39,7 +57,13 @@ hf download openbmb/MiniCPM-o-4_5 \
 
 需要 Linux、NVIDIA CUDA GPU 和约 21GB 可用显存。只有扩展到视频输入/输出时才需要 FFmpeg；本次 WAV→文本/语音 campaign 不调用 FFmpeg。模型权重与上游 Python 自定义代码会被下载到 Hugging Face cache，运行前应按自己的供应链策略审查并固定 revision。
 
-## 运行
+<a id="learning-2"></a>
+
+## 按照步骤完成实验
+
+先查看样例中的算术题与快慢语速对照，写下哪些问题仅凭文字就能回答。按下文准备本地模型，再分别运行两条路径，对照音频、转写和最终答案。
+
+### 运行
 
 ```bash
 python demo.py \
@@ -62,7 +86,13 @@ python demo.py --help
 
 合成输入可用 `python prepare_fixtures.py` 重建（需要 `espeak`）；正式证据以仓库中 WAV 的 hash 为准。
 
-## 本地结果
+<a id="learning-3"></a>
+
+## 分析结果与形成判断
+
+直接音频路径更好时，要确认不是转写错误造成差距。文本相同但语速不同的案例尤其适合观察声音信息。音频生成检查是另一项能力，不应与输入理解混为一个分数。
+
+### 本地结果
 
 2026-08-01 的[本地 canonical run](validation/runs/exp6-5-minicpmo45-20260801-v1/evidence.json)已通过[全部 11 项验收](validation/runs/exp6-5-minicpmo45-20260801-v1/acceptance.json)。硬件是单张 96GB RTX PRO 6000 Blackwell，PyTorch 2.8.0+cu128、Transformers 4.51.0、BF16/SDPA；模型加载 6.154 秒，峰值分配显存 20.269GiB。
 
@@ -77,6 +107,10 @@ python demo.py --help
 加载完成后的平均整次调用为端到端 0.686 秒、自级联 0.551 秒。由于端到端固定先跑、回复长度不同且只有四条，这不是可推广的延迟排名。audio-to-audio 臂另生成了[11.56 秒、24kHz 单声道 WAV](validation/runs/exp6-5-minicpmo45-20260801-v1/outputs/spoken-math-boxes-response.wav)，但它继承了第一题的感知错误。这是有价值的负结果：路径真实跑通不等于答案正确。
 
 ---
+
+### 检查自己的解释
+
+如果模型能识别语速却不能据此调整回复，说明感知与决策之间还缺少什么？
 
 ## English
 
