@@ -58,22 +58,22 @@
 
 </details>
 
-## 📑 内容速览（第 1–10 章）
+## 📑 内容速览（第 1–10 章）⭐
 
 全书围绕核心公式 **Agent = LLM + 上下文 + 工具** 展开，十章层层递进：
 
-| 章 | 主题 | 一句话核心 | 正文 | 实验 |
+| 章 |  正文 | 实验 | 主题 | 一句话核心 |
 | :--: | --- | --- | :--: | :--: |
-| 1 | 🚀 **AI Agent 入门** | **Agent = LLM + 上下文 + 工具**；Harness 工程才是竞争力 | [读](book/chapter1.md) | [4](chapter1/README.md) |
-| 2 | 🎯 **上下文工程** | 上下文决定能力上限：KV Cache、提示工程、Agent Skills、上下文压缩 | [读](book/chapter2.md) | [10](chapter2/README.md) |
-| 3 | 📚 **用户记忆和知识库** | 跨会话记住用户、接入外部知识：用户记忆、RAG、结构化索引、知识图谱 | [读](book/chapter3.md) | [12](chapter3/README.md) |
-| 4 | 🛠️ **工具** | 工具是 Agent 的双手：MCP 协议、感知/执行/协作三类工具与主动工具发现 | [读](book/chapter4.md) | [5](chapter4/README.md) |
-| 5 | 💻 **Coding Agent 与通用 Agent** | 代码是「能创造新工具的工具」，生产级 Coding Agent 全景 | [读](book/chapter5.md) | [16](chapter5/README.md) |
-| 6 | 🎙️ **交互：观察与动作空间的扩展** | 从模态与时序两个维度扩展 Agent 的观察与动作空间：异步与事件驱动、语音交互、Computer Use 和机器人操作 | [读](book/chapter6.md) | [14](chapter6/README.md) |
-| 7 | 🎯 **Agent 的评估** | 把表现变成可比较信号：评估环境、指标、统计显著性、评估驱动选型 | [读](book/chapter7.md) | [14](chapter7/README.md) |
-| 8 | 🧠 **模型后训练** | 预训练/SFT/RL 三阶段：何时选 SFT、何时选 RL，工具调用内化、样本效率 | [读](book/chapter8.md) | [19](chapter8/README.md) |
-| 9 | 🔄 **Agent 的持续进化** | 从运行轨迹获得学习信号，更新知识、指令、程序与参数 | [读](book/chapter9.md) | [9](chapter9/README.md) |
-| 10 | 🤝 **多 Agent 协作** | 群体智能高于个体：协作框架、上下文共享/隔离、涌现的「Agent 社会」 | [读](book/chapter10.md) | [6](chapter10/README.md) |
+| 1 | [读](book/chapter1.md) | [4](chapter1/README.md) | 🚀 **AI Agent 入门** | **Agent = LLM + 上下文 + 工具**；Harness 工程才是竞争力 |
+| 2 | [读](book/chapter2.md) | [10](chapter2/README.md) | 🎯 **上下文工程** | 上下文决定能力上限：KV Cache、提示工程、Agent Skills、上下文压缩 |
+| 3 | [读](book/chapter3.md) | [12](chapter3/README.md) | 📚 **用户记忆和知识库** | 跨会话记住用户、接入外部知识：用户记忆、RAG、结构化索引、知识图谱 |
+| 4 | [读](book/chapter4.md) | [5](chapter4/README.md) | 🛠️ **工具** | 工具是 Agent 的双手：MCP 协议、感知/执行/协作三类工具与主动工具发现 |
+| 5 | [读](book/chapter5.md) | [16](chapter5/README.md) | 💻 **Coding Agent 与通用 Agent** | 代码是「能创造新工具的工具」，生产级 Coding Agent 全景 |
+| 6 | [读](book/chapter6.md) | [14](chapter6/README.md) | 🎙️ **交互：观察与动作空间的扩展** | 从模态与时序两个维度扩展 Agent 的观察与动作空间：异步与事件驱动、语音交互、Computer Use 和机器人操作 |
+| 7 | [读](book/chapter7.md) | [14](chapter7/README.md) | 🎯 **Agent 的评估** | 把表现变成可比较信号：评估环境、指标、统计显著性、评估驱动选型 |
+| 8 | [读](book/chapter8.md) | [19](chapter8/README.md) | 🧠 **模型后训练** | 预训练/SFT/RL 三阶段：何时选 SFT、何时选 RL，工具调用内化、样本效率 |
+| 9 | [读](book/chapter9.md) | [9](chapter9/README.md) | 🔄 **Agent 的持续进化** | 从运行轨迹获得学习信号，更新知识、指令、程序与参数 |
+| 10 | [读](book/chapter10.md) | [6](chapter10/README.md) | 🤝 **多 Agent 协作** | 群体智能高于个体：协作框架、上下文共享/隔离、涌现的「Agent 社会」 |
 
 > 💡 **读** = 在 GitHub 网页直接读章节正文（markdown）；**N** = 该章正文实验数，点击查看实现与复现说明。项目类型说明（✅ 可运行 / 📖 复现 / 🚧 设计）见各章 README。
 >
