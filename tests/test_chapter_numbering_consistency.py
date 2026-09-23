@@ -6,8 +6,8 @@ The checks cover the public chapter index, build-version metadata, the issue
 
 from __future__ import annotations
 
+import html
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -17,7 +17,7 @@ CHAPTERS = {
     3: ("用户记忆和知识库", 12),
     4: ("工具", 5),
     5: ("Coding Agent 与通用 Agent", 16),
-    6: ("交互：观察与动作空间的扩展", 13),
+    6: ("交互：观察与动作空间的扩展", 14),
     7: ("Agent 的评估", 14),
     8: ("模型后训练", 19),
     9: ("Agent 的持续进化", 9),
@@ -62,7 +62,7 @@ def test_public_chapter_indexes_use_the_2_0_structure():
 
     for document in (root_readme, zh_readme):
         assert "书稿版本已由 1.4 升级为 2.0" in document
-        assert "**108 个配套实验**" in document
+        assert "**109 个配套实验**" in document
         for number, (title, count) in CHAPTERS.items():
             assert f"| {number} |" in document
             assert f"**{title}**" in document
@@ -137,3 +137,25 @@ def test_chapter_overviews_do_not_link_obsolete_run_ids():
         content = read(path)
         for fragment in fragments:
             assert fragment not in content, (path, fragment)
+
+
+def test_introduction_overview_figure_uses_current_chapter_numbers():
+    """fig0-1 must agree with fig0-2 on where each chapter sits.
+
+    The figure was corrected in #1111 (issue #1079); this locks the 2.0
+    numbering in so the stale 1.4 numbers cannot drift back unnoticed.
+    fig0-1 stores its text as numeric character references, so it is
+    unescaped before matching.
+    """
+    overview_figure = html.unescape(read("book/images/fig0-1.svg"))
+
+    assert "第 7 章 评估" in overview_figure
+    assert "第 8 章 后训练" in overview_figure
+    assert "第 6 章 交互" in overview_figure
+    assert "第 9 章 持续进化" in overview_figure
+    assert "第 10 章 多 Agent" in overview_figure
+
+    assert "第 6 章 评估" not in overview_figure
+    assert "第 7 章 后训练" not in overview_figure
+    assert "第 8 章 自我进化" not in overview_figure
+    assert "第 9 章 多模态" not in overview_figure

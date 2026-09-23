@@ -1,8 +1,18 @@
 # 实验 1-4：文生图工作流与原生图像生成的对照
 
+用户说“画一张耳机海报”，与明确指定画面、风格和文案，是两种不同的任务。本实验比较直接生成图片和先改写提示词再生成图片，学习如何判断一个工作流步骤是否真正有帮助。
+
+建议按以下顺序阅读：[理解问题与方法](#learning-0) → [准备环境与输入](#learning-1) → [按照步骤完成实验](#learning-2) → [分析结果与形成判断](#learning-3)。
+
+<a id="learning-0"></a>
+
+## 理解问题与方法
+
+改写节点把用户语言转成图像模型的输入，也可能补充场景细节。对于宽泛需求，这可能有助于形成画面；对于具体需求，多加的内容却可能挤掉用户的原始约束。因此，应分别评价创意补充和要求保留。
+
 对应书稿 `book/chapter1.md` 的「实验 1-4 ★」。
 
-## 实验目标
+### 实验目标
 
 让同一句口语化中文需求走两条路线，对照观察：
 
@@ -24,7 +34,7 @@
 | 宽泛（主用例） | `agi-programmer` | 帮我画一个 AGI 实现以后程序员的工作场景 |
 | 宽泛 | `future-city-morning` | 帮我画一幅"未来城市的早晨"的画 |
 
-## 三条路线的架构
+### 三条路线的架构
 
 ```
 工作流路线（workflow）：
@@ -46,50 +56,7 @@
 工作流路线的执行路径是代码写死的（先改写、后生成，见 `pipeline.py` 的
 `run_workflow_route`）；两条原生路线都没有改写节点，模型自己理解口语化需求并直接出图。
 
-## 模型选型实录（如实记录）
-
-- **原生路线 A（native）**：**`gemini-3-pro-image`**（书稿所称 Nano Banana 2）——
-  ListModels 实测可用，5 句需求全部一次成功（20260821T040450Z 轮）；早期轮次
-  `agi-programmer` 偶发内容过滤（候选响应 content 为 None），重跑后恢复，非不可用。
-- **原生路线 B（native_gptimage）**：OpenAI **`gpt-image-2`**（GPT-Image 2，
-  images/generations 接口）——全部 5 句需求均一次成功。该账户此前 GPT-5.x 因
-  `credit_balance_exhausted` 失败过，但图像接口可用。
-- **工作流路线生图工具**：实验设计首选 SiliconFlow 托管的 FLUX.1 / Stable Diffusion
-  系列，实测 `black-forest-labs/FLUX.1-schnell` 与
-  `stabilityai/stable-diffusion-3-5-large` 返回 `Model disabled`；账户余额为 0，
-  `Kwai-Kolors/Kolors`、`Tongyi-MAI/Z-Image-Turbo`、`Qwen/Qwen-Image` 均报
-  `balance insufficient`；OpenRouter 仅提供视觉理解模型，不支持文本转图像生成。
-  改用 **DashScope 国际站通义万相 `wan2.2-t2i-flash`**（经典扩散式文生图模型，接受
-  SD 风格提示词与负面提示词，异步任务接口）。注意：该模型服务端会再做一次内部提示词
-  扩写（响应中的 `actual_prompt` 字段），已一并留证。
-- **改写节点 LLM**：Moonshot **`kimi-k3`**（OpenAI 兼容接口）。
-  kimi-k3 只允许 temperature=1（默认值），显式传其他值被 400 拒绝。
-
-## 配置与运行
-
-```bash
-# 在仓库根目录
-cp chapter1/image-gen-workflow/env.example .env   # 填入各 API Key（或 export 环境变量）
-
-cd chapter1/image-gen-workflow
-pip install -r requirements.txt   # google-genai openai requests python-dotenv
-
-# 标准运行：全部 5 句需求 × 4 条路线（workflow/native/native_gemini_pro/native_gptimage）
-python main.py
-
-# 只跑某条路线 / 某句需求
-python main.py --route workflow
-python main.py --route native_gemini_pro
-python main.py --requirement windowsill-plant
-
-# 离线测试（不发真实请求）
-python -m pytest
-```
-
-所需环境变量见 `env.example`：`KIMI_API_KEY`、`DASHSCOPE_API_KEY`、`GEMINI_API_KEY`、
-`OPENAI_API_KEY`（`SILICONFLOW_API_KEY` 为首选方案保留，本次未实际使用）。
-
-## 目录与证据
+### 目录与证据
 
 ```
 image-gen-workflow/
@@ -108,7 +75,72 @@ image-gen-workflow/
         └── evidence.sha256
 ```
 
-## 正式运行结果摘要
+<a id="learning-1"></a>
+
+## 准备环境与输入
+
+下面会用到模型服务。先按配置说明选择一个提供商，准备对应的模型名称、服务地址和 API Key，再运行小规模例子。一次完整运行的费用取决于模型、输入长度和调用次数。
+
+### 已有实验的模型选择与条件
+
+- **原生路线 A（native）**：**`gemini-3-pro-image`**（书稿所称 Nano Banana 2）——
+  ListModels 实测可用，5 句需求全部一次成功（20260821T040450Z 轮）；早期轮次
+  `agi-programmer` 偶发内容过滤（候选响应 content 为 None），重跑后恢复，非不可用。
+- **原生路线 B（native_gptimage）**：OpenAI **`gpt-image-2`**（GPT-Image 2，
+  images/generations 接口）——全部 5 句需求均一次成功。该账户此前 GPT-5.x 因
+  `credit_balance_exhausted` 失败过，但图像接口可用。
+- **工作流路线生图工具**：实验设计首选 SiliconFlow 托管的 FLUX.1 / Stable Diffusion
+  系列，实测 `black-forest-labs/FLUX.1-schnell` 与
+  `stabilityai/stable-diffusion-3-5-large` 返回 `Model disabled`；账户余额为 0，
+  `Kwai-Kolors/Kolors`、`Tongyi-MAI/Z-Image-Turbo`、`Qwen/Qwen-Image` 均报
+  `balance insufficient`；OpenRouter 仅提供视觉理解模型，不支持文本转图像生成。
+  改用 **DashScope 国际站通义万相 `wan2.2-t2i-flash`**（经典扩散式文生图模型，接受
+  SD 风格提示词与负面提示词，异步任务接口）。注意：该模型服务端会再做一次内部提示词
+  扩写（响应中的 `actual_prompt` 字段），已一并留证。
+- **改写节点 LLM**：Moonshot **`kimi-k3`**（OpenAI 兼容接口）。
+  kimi-k3 只允许 temperature=1（默认值），显式传其他值被 400 拒绝。
+
+### 配置与运行
+
+```bash
+# 在仓库根目录
+cp chapter1/image-gen-workflow/env.example .env   # 填入各 API Key（或 export 环境变量）
+
+cd chapter1/image-gen-workflow
+pip install -r requirements.txt   # google-genai openai requests python-dotenv
+
+# 标准运行：全部 5 句需求 × 3 条路线（workflow/native/native_gptimage）
+python main.py
+
+# 只跑某条路线 / 某句需求
+python main.py --route workflow
+python main.py --route native_gptimage
+python main.py --requirement windowsill-plant
+
+# 离线测试（不发真实请求）
+python -m pytest
+```
+
+所需环境变量见 `env.example`：`KIMI_API_KEY`、`DASHSCOPE_API_KEY`、`GEMINI_API_KEY`、
+`OPENAI_API_KEY`（`SILICONFLOW_API_KEY` 为首选方案保留，本次未实际使用）。
+
+<a id="learning-2"></a>
+
+## 按照步骤完成实验
+
+配置下文中对应路线的模型凭据后，先只选 `windowsill-plant` 这一项。运行后并排阅读原始需求、改写后的提示词和最终图片。再选择一个宽泛需求，重复同样的观察，避免一开始就批量生成所有图片。
+
+<a id="learning-3"></a>
+
+## 分析结果与形成判断
+
+检查窗台、绿植和晨光是否同时出现，而不只判断图片是否漂亮。如果某个要求消失了，先查它是否在改写时丢失；若提示词仍保留它，再分析图像生成阶段。不同路线使用的模型也不同，结果不能全部归因于是否改写。
+
+### 先核对需求，再阅读评分表
+
+阅读下面的图片和评分时，可以为每个需求建立三列记录：用户明确要求什么、改写后还保留什么、图片最终呈现什么。这样既能定位改写节点的影响，也能区分图像模型自身的生成误差。宽泛需求与具体需求的评价标准不同，先分别比较，再讨论整体趋势。模型选型和失败记录属于比较条件，不能从结果表中省略。
+
+### 已有运行结果与对照分析
 
 **最终正式运行（run_id=`20260821T040450Z`）**：5 句需求 × 3 条路线共 15 次运行，**15/15 全部成功**，
 证据见 `validation/real_20260821T040450Z/evidence.json`（sha256: `7e529a8085d7d90856a2311a8981f5fc0b59531065121ff7eed5b74a1b076783`）。
@@ -121,7 +153,7 @@ image-gen-workflow/
   共 6 次成功。
 - **run_id=`20260821T020405Z`**：2 句宽泛需求 × 同上 2 条路线 + gpt-image-2 对照，共 5 次成功。
 
-### 具体需求对照：改写节点对原始需求做了什么
+#### 具体需求对照：改写节点对原始需求做了什么
 
 以主用例「帮我画一个周末加班的程序员，风格丧一点」为例，kimi-k3 改写产出：
 
@@ -137,7 +169,7 @@ cheerful 列为排除项来保住"丧"的情绪，这是原始需求里没有的
 值得注意：万相服务端对 prompt 又做了一次内部扩写（响应里的 `actual_prompt`
 字段，已留证）——托管文生图服务自己也开始内置"改写"这一适配层了。
 
-### 具体需求对照：三条路线的图片对原始需求的满足程度
+#### 具体需求对照：三条路线的图片对原始需求的满足程度
 
 | 需求 | 工作流路线（改写 + 万相） | 原生路线 A（Nano Banana 2） | 原生路线 B（GPT-Image 2） | 对照结论 |
 | --- | --- | --- | --- | --- |
@@ -151,7 +183,7 @@ cheerful 列为排除项来保住"丧"的情绪，这是原始需求里没有的
 诉求在改写环节就被丢弃了；而原生模型自己能渲染中文文字，一次调用就把文案、产品、
 氛围同时做对（仅底部小图误画成入耳式耳机，与主图头戴式不一致，算小瑕疵）。
 
-### 宽泛需求对照：改写节点的场景具象化有没有带来信息增益
+#### 宽泛需求对照：改写节点的场景具象化有没有带来信息增益
 
 主用例「帮我画一个 AGI 实现以后程序员的工作场景」，kimi-k3 的改写把它具象化为
 一个**有明确观点的场景**（style_notes 原文：用「程序员悠闲喝咖啡、人形机器人写代码、
@@ -179,7 +211,7 @@ cheerful 列为排除项来保住"丧"的情绪，这是原始需求里没有的
 要"对 AGI 之后工作场景的想象与回答"，GPT-Image 2 最强，工作流路线其次，Nano Banana 2
 有观点但信息密度略低。
 
-### 已知问题与失败记录
+#### 已知问题与失败记录
 
 - **早期运行 temperature 参数失败**：给 kimi-k3 显式传 `temperature=0.3` 被 400 拒绝
   （该模型只允许默认值 1），3 次改写全部失败（run_id=`20260821T014302Z`）；
@@ -191,3 +223,7 @@ cheerful 列为排除项来保住"丧"的情绪，这是原始需求里没有的
   （Model disabled），账户余额为 0；OpenRouter 仅提供视觉理解模型，不支持文本转图像生成。
   改用通义万相，见「模型选型实录」。
 - **GPT-Image 2 全量可用**：5 句需求均一次成功（耗时 30–50s / 次）。
+
+### 检查自己的解释
+
+怎样设计一个既奖励合理补充、又惩罚擅自修改明确要求的评分表？

@@ -1,5 +1,15 @@
 # 实验 6-3：模型原生异步与回合中途引导
 
+模型已经开始挑选会议场地，用户又修改了人数或预算。这种更新不应等到错误方案执行完才处理。本实验用受控场地任务观察回合中途引导如何影响后续行为。
+
+建议按以下顺序阅读：[理解问题与方法](#learning-0) → [准备环境与输入](#learning-1) → [按照步骤完成实验](#learning-2) → [分析结果与形成判断](#learning-3) → [排查问题与查阅资料](#learning-5)。
+
+<a id="learning-0"></a>
+
+## 理解问题与方法
+
+中途引导不仅是追加一条消息，还涉及服务端是否接收更新、正在运行的任务是否感知，以及后续工具动作采用哪一版条件。模型与接口必须支持相应能力，普通同步调用不能自动获得它。
+
 ← [第六章实验目录](../README.md) · [第六章正文](../../book/chapter6.md)
 
 2026-09-05，使用真实 OpenAI Responses WebSocket API 完成五组、每组三次运行，**15/15 达到各自验收条件**。其中 12 次验证 Astra 的行为，3 次验证 `gpt-5.6-sol` 明确拒绝 steering。场地数据、工具延迟与用户更新由本地脚本控制；模型响应和服务端事件均来自真实 API。
@@ -8,7 +18,27 @@
 
 正文编号调整为 6-3；2026-09-05 的运行记录及源码快照保留当时的 `exp6-14-*` 标识和哈希，以下复核命令继续使用这些归档路径。
 
-## 任务与实验变量
+### 官方依据（2026-09-05 核对）
+
+- [Using GPT-6 Astra](https://developers.openai.com/api/docs/guides/latest-model)：两项能力已公开提供，以及模型名 `gpt-6-astra`。
+- [Async tool calling](https://developers.openai.com/api/docs/guides/async-tool-calling)：function/custom 工具的 `async: true`、应用执行职责、原始 `call_id`、后续结果归还与兼容范围。
+- [Mid-turn steering](https://developers.openai.com/api/docs/guides/steering)：同连接 `response.steer`、accepted/自动 continuation/pending 事件流，以及 GPT-5.6 及更早模型不支持 steering。
+- [Responses WebSocket events](https://developers.openai.com/api/reference/resources/responses/websocket-events#response.steer)：steering 只接受受支持的用户消息，及 conversation、自动 compaction 等请求组合的限制。
+- [WebSocket mode](https://developers.openai.com/api/docs/guides/websocket-mode)：`previous_response_id`、增量输入、同连接状态与恢复语义。
+
+<a id="learning-1"></a>
+
+## 准备环境与输入
+
+下面会用到模型服务。先按配置说明选择一个提供商，准备对应的模型名称、服务地址和 API Key，再运行小规模例子。一次完整运行的费用取决于模型、输入长度和调用次数。
+
+<a id="learning-2"></a>
+
+## 按照步骤完成实验
+
+先阅读任务表，分别算出初始条件和更新条件下应选择的场地。按下文配置支持的服务后，只运行一个引导条件，记录更新到达、服务端事件和最终选择的先后顺序。
+
+### 任务与实验变量
 
 为一次模拟会议选择满足人数与预算的最便宜场地，初始预算为 2000、人数为 20。
 
@@ -30,7 +60,7 @@
 
 `sync` / `async` 是同模型对照：模型、任务、提示词、`reasoning.effort: low`、`parallel_tool_calls: false` 都相同，只改变工具定义的 `async`。无工具的推理组使用 `medium`，以观察 reasoning 项的生命周期；它不是与前两组等任务的耗时对照。每组固定运行三次，不以成功重试替换失败样本。
 
-## 运行与离线复核
+### 运行与离线复核
 
 需要 Python 3.11 或更高版本，以及能访问相应模型且有可用余额的 OpenAI API 项目。脚本读取环境中的 `OPENAI_API_KEY`，直连 `wss://api.openai.com/v1/responses`。
 
@@ -60,7 +90,13 @@ python summarize.py validation/runs/exp6-14-20260905-formal \
 
 第一条核对 manifest 中列出的 SHA-256，并从原始事件重新计算每项验收，与保存的判定逐项比较。第二条运行 10 项验收测试：以真实预实验轨迹为基础，故意制造仅 accepted 而没有续接、错误 call ID、重复提交、虚构回执、遗漏预算更新、错误模型、余额不足冒充能力拒绝、使用旧 parent、缺少重叠输出等情况，确认它们不会被误判成功。第三条重新生成[结构化汇总](validation/summary.json)，并额外检查 steering 是否确实发生在可观察的 reasoning 项开始与完成之间。
 
-## 正式实测结果
+<a id="learning-3"></a>
+
+## 分析结果与形成判断
+
+检查选择是否满足更新后的约束，而不只看模型是否说“收到”。本地脚本控制场地与延迟，模型响应来自服务，两部分应分别解释。一次成功也不代表任意时机的更新都能生效。
+
+### 正式实测结果
 
 正式运行：[exp6-14-20260905-formal](validation/runs/exp6-14-20260905-formal/manifest.json)，UTC 2026-09-05 14:17:03–14:19:30。实际返回模型为 `gpt-6-astra` 和 `gpt-5.6-sol`，没有替换模型或使用代理网关。
 
@@ -78,7 +114,7 @@ python summarize.py validation/runs/exp6-14-20260905-formal \
 
 服务端报告的正式 Astra token 用量合计为输入 11,616、输出 1,655，包含已中断 response 报告的用量。负对照没有报告 usage，汇总中的零表示“没有报告值可相加”，不代表已证实免费；预实验也未计入上述用量。
 
-## 一次真实时间线
+### 一次真实时间线
 
 以下对应[第一次工具挂起时 steering 的完整事件](validation/runs/exp6-14-20260905-formal/01-async_steer/events.jsonl)。表中将三个实际 response ID 缩写为 R1/R2/R3，秒数从该实验单元的客户端启动时刻起算。
 
@@ -97,15 +133,25 @@ python summarize.py validation/runs/exp6-14-20260905-formal \
 
 另见[第一次 reasoning 期间 steering 的事件](validation/runs/exp6-14-20260905-formal/01-steer_reasoning/events.jsonl)：reasoning 项在 2.190 秒开始，随后发送更新，3.824 秒收到 `incomplete(reason=steered)`，3.950 秒自动创建后继 response，7.763 秒完成最终答案。
 
-## 协议边界与证据范围
+### 检查自己的解释
+
+如果更新到达时一个不可撤销动作已经开始，系统应怎样向用户说明已经发生的部分？
+
+<a id="learning-5"></a>
+
+## 排查问题与查阅资料
+
+### 协议边界与证据范围
 
 运行器有一个 WebSocket 读取循环，以及独立的本地工具任务。读取循环持续记录服务端事件；工具结果就绪后进入本地队列。若当前 response 仍在运行，结果留待后续 `response.create` 提交。已经 accepted 的 steering 由服务端拥有其接续权：客户端等待自动后继 response，或等待 `response.steer.pending` 指明所需输入，避免重复发起续接。
 
 `response.steer` 承载用户消息；`function_call_output` 承载工具结果。把工具结果改写成一条用户消息，会丢失原始调用的协议归属，本实验不采用这种方式。脚本模拟了两条用户更新，不代表第三方邮件、Webhook 或任意 event 都能直接作为有用户权限的 steering 输入。
 
-本次实测覆盖 function 工具、文本用户消息和单 Agent 会话。没有测 custom 工具、多工具乱序返回、长期任务、取消副作用、断线恢复、自动 compaction，以及 `response.steer.pending` 分支；六次 Astra steering 都直接产生了自动 continuation，没有 pending 事件。实现保留了文档要求的 pending 处理路径，其端到端行为仍需独立场景验证。公开 reasoning 项的开始/完成事件证明了可观察的注入时机，不能揭示或证明隐藏推理 token 的逐字保留，也不能据此推断模型采用了何种训练方法。
+本次实测覆盖 function 工具、文本用户消息和单 Agent 会话。没有测 custom 工具、多工具乱序返回、长期任务、取消副作用、断线恢复、自动 compaction，以及 `response.steer.pending` 分支；六次 Astra steering 都直接产生了自动 continuation，没有 pending 事件。
 
-## 文件与运行来源
+实现保留了文档要求的 pending 处理路径，其端到端行为仍需独立场景验证。公开 reasoning 项的开始/完成事件证明了可观察的注入时机，不能揭示或证明隐藏推理 token 的逐字保留，也不能据此推断模型采用了何种训练方法。
+
+### 文件与运行来源
 
 - [experiment.py](experiment.py)：实验控制、真实 API 调用、逐事件保存、自动验收和离线重判。
 - [test_judging.py](test_judging.py)：基于真实预实验的 10 项反例测试。
@@ -116,11 +162,3 @@ python summarize.py validation/runs/exp6-14-20260905-formal \
 - [余额恢复后的预实验](validation/runs/pilot-20260905-v2/manifest.json)：五组各一次通过，用作验收反例测试的原始轨迹，不混入正式统计。
 
 预实验使用当时版本的判据；要逐项重判旧回执，使用其 `source/experiment.py --replay <运行目录>`，以免把后续增加的检查误作原始验收。正式运行与当前主脚本的判据相同。
-
-## 官方依据（2026-09-05 核对）
-
-- [Using GPT-6 Astra](https://developers.openai.com/api/docs/guides/latest-model)：两项能力已公开提供，以及模型名 `gpt-6-astra`。
-- [Async tool calling](https://developers.openai.com/api/docs/guides/async-tool-calling)：function/custom 工具的 `async: true`、应用执行职责、原始 `call_id`、后续结果归还与兼容范围。
-- [Mid-turn steering](https://developers.openai.com/api/docs/guides/steering)：同连接 `response.steer`、accepted/自动 continuation/pending 事件流，以及 GPT-5.6 及更早模型不支持 steering。
-- [Responses WebSocket events](https://developers.openai.com/api/reference/resources/responses/websocket-events#response.steer)：steering 只接受受支持的用户消息，及 conversation、自动 compaction 等请求组合的限制。
-- [WebSocket mode](https://developers.openai.com/api/docs/guides/websocket-mode)：`previous_response_id`、增量输入、同连接状态与恢复语义。

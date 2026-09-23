@@ -1,5 +1,125 @@
 # Orpheus TTS - Text-to-Speech Fine-tuning with Unsloth
 
+语音合成微调需要把文字与对应声音组织成模型能够学习的序列。本项目以 Orpheus 为例，帮助你理解音频编码、训练样本与生成解码的关系。
+
+[English](#english)
+
+建议按以下顺序阅读：[理解问题与方法](#learning-0) → [准备环境与输入](#learning-1) → [按照步骤完成实验](#learning-2) → [分析结果与形成判断](#learning-3)。
+
+<a id="learning-0"></a>
+
+## 理解问题与方法
+
+音频编解码器把波形表示为离散词元，模型学习文本与这些词元的关系。LoRA 只更新部分适配参数，但数据质量、采样率和序列格式仍然决定训练是否有意义。
+
+<a id="learning-1"></a>
+
+## 准备环境与输入
+
+阅读训练命令前，先确认基础模型、数据文件、适配器输出位置和显存要求。把数据准备、训练和评估看作三个独立步骤：前一步得到的文件，是后一步需要核对的输入。
+
+<a id="learning-2"></a>
+
+## 按照步骤完成实验
+
+按下文建立项目独立环境，避免把音频栈与其他训练依赖混装。先检查一条文字与音频是否对齐，再进行少量训练。使用相同留出文本生成训练前后声音，逐句试听。
+
+### Orpheus TTS：使用 Unsloth 微调文本转语音模型
+
+#### 概述
+
+本项目演示如何使用 Unsloth 对 Orpheus TTS 模型进行高效微调，并提供训练、推理、情感标签和多说话人支持示例。
+
+#### 功能
+
+- 使用 LoRA/QLoRA 进行显存友好的微调
+- 支持情感标签与富表现力语音
+- 支持多说话人数据与推理
+- 使用 SNAC 音频离散编码
+- 提供训练和推理脚本
+
+#### 安装
+
+需要支持 CUDA 的 GPU、Python 3.10+、PyTorch、FFmpeg，以及与本机 CUDA 环境匹配的 Unsloth 依赖。
+
+```bash
+# 从仓库根目录开始：Orpheus 请使用单独的项目本地环境。
+# 它的音频栈需要与本机 CUDA 平台匹配的 torch/torchaudio 组合，
+# 因此不要安装到共享的根目录 .venv 中。
+cd chapter8/orpheus
+python -m venv .venv-orpheus
+source .venv-orpheus/bin/activate
+# Windows PowerShell：.\.venv-orpheus\Scripts\Activate.ps1
+# Windows cmd：.venv-orpheus\Scripts\activate.bat
+
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+#### 项目结构
+
+训练脚本负责加载数据集、模型与 LoRA 配置并保存适配器；推理脚本加载基础模型和适配器，将生成的音频 token 通过 SNAC 解码为音频文件。
+
+#### 使用
+
+##### 训练
+
+按脚本中的模型、数据集、批量大小、学习率和输出目录配置启动训练。显存不足时可减小批量大小、启用梯度累积或使用量化加载。
+
+##### 推理
+
+加载训练后的适配器，输入文本后生成语音。文本中可加入模型支持的情感标签，以控制笑声、叹气等表达。
+
+##### 情感标签
+
+Orpheus 支持在文本中嵌入特定标签来生成更有表现力的语音。实际可用标签取决于基础模型和训练数据。
+
+##### 多说话人支持
+
+数据样本应包含稳定的说话人标识。推理时使用与训练一致的说话人 token，避免音色混淆。
+
+#### 数据集格式
+
+数据集需要提供文本与音频字段，并可选择包含说话人信息。音频应使用一致的采样率和声道格式；训练前应过滤损坏或异常长度的样本。
+
+#### 模型架构
+
+模型将文本 token 与 SNAC 音频 token 放在统一序列中进行自回归建模。特殊 token 用于标记文本、说话人、音频起止位置和生成边界。
+
+#### 输出
+
+训练输出包含 LoRA 适配器、分词器和训练状态；推理输出为解码后的音频文件。
+
+#### 显存占用
+
+显存需求取决于模型大小、序列长度、批量大小和量化方式。遇到显存不足时，应优先降低批量大小和最大序列长度。
+
+#### 故障排查
+
+常见问题包括 CUDA/Flash Attention 版本不兼容、FFmpeg 缺失、音频格式错误、特殊 token 不匹配以及生成长度不足。
+
+#### 性能建议
+
+使用混合精度、梯度检查点和批量预处理；在正式训练前先用少量样本完成端到端冒烟测试。
+
+#### 资源、许可与引用
+
+模型、Unsloth、SNAC 和数据集的链接见英文部分。使用本项目时请分别遵守上游模型、代码和数据许可，并按上游要求引用。
+
+#### 贡献与致谢
+
+欢迎通过 Issue 和 Pull Request 改进脚本与文档。感谢 Orpheus、Unsloth、SNAC 及其开源社区。
+
+<a id="learning-3"></a>
+
+## 分析结果与形成判断
+
+训练损失下降不保证新句子的声音更好。检查漏读、重复、音色一致性和可懂度，并区分训练样例与未见文本。具体内存需求应依据实际配置测量。
+
+### 检查自己的解释
+
+若模型只在训练句子上保持音色，怎样设计测试来判断它是否学到了跨句子的特征？
+
 ## English
 
 This project demonstrates how to fine-tune the Orpheus 3B text-to-speech model using Unsloth for efficient training and inference.
@@ -273,91 +393,3 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 - Hugging Face for hosting models and datasets
 
 ---
-
-## 中文
-
-# Orpheus TTS：使用 Unsloth 微调文本转语音模型
-
-## 概述
-
-本项目演示如何使用 Unsloth 对 Orpheus TTS 模型进行高效微调，并提供训练、推理、情感标签和多说话人支持示例。
-
-## 功能
-
-- 使用 LoRA/QLoRA 进行显存友好的微调
-- 支持情感标签与富表现力语音
-- 支持多说话人数据与推理
-- 使用 SNAC 音频离散编码
-- 提供训练和推理脚本
-
-## 安装
-
-需要支持 CUDA 的 GPU、Python 3.10+、PyTorch、FFmpeg，以及与本机 CUDA 环境匹配的 Unsloth 依赖。
-
-```bash
-# 从仓库根目录开始：Orpheus 请使用单独的项目本地环境。
-# 它的音频栈需要与本机 CUDA 平台匹配的 torch/torchaudio 组合，
-# 因此不要安装到共享的根目录 .venv 中。
-cd chapter8/orpheus
-python -m venv .venv-orpheus
-source .venv-orpheus/bin/activate
-# Windows PowerShell：.\.venv-orpheus\Scripts\Activate.ps1
-# Windows cmd：.venv-orpheus\Scripts\activate.bat
-
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
-
-## 项目结构
-
-训练脚本负责加载数据集、模型与 LoRA 配置并保存适配器；推理脚本加载基础模型和适配器，将生成的音频 token 通过 SNAC 解码为音频文件。
-
-## 使用
-
-### 训练
-
-按脚本中的模型、数据集、批量大小、学习率和输出目录配置启动训练。显存不足时可减小批量大小、启用梯度累积或使用量化加载。
-
-### 推理
-
-加载训练后的适配器，输入文本后生成语音。文本中可加入模型支持的情感标签，以控制笑声、叹气等表达。
-
-### 情感标签
-
-Orpheus 支持在文本中嵌入特定标签来生成更有表现力的语音。实际可用标签取决于基础模型和训练数据。
-
-### 多说话人支持
-
-数据样本应包含稳定的说话人标识。推理时使用与训练一致的说话人 token，避免音色混淆。
-
-## 数据集格式
-
-数据集需要提供文本与音频字段，并可选择包含说话人信息。音频应使用一致的采样率和声道格式；训练前应过滤损坏或异常长度的样本。
-
-## 模型架构
-
-模型将文本 token 与 SNAC 音频 token 放在统一序列中进行自回归建模。特殊 token 用于标记文本、说话人、音频起止位置和生成边界。
-
-## 输出
-
-训练输出包含 LoRA 适配器、分词器和训练状态；推理输出为解码后的音频文件。
-
-## 显存占用
-
-显存需求取决于模型大小、序列长度、批量大小和量化方式。遇到显存不足时，应优先降低批量大小和最大序列长度。
-
-## 故障排查
-
-常见问题包括 CUDA/Flash Attention 版本不兼容、FFmpeg 缺失、音频格式错误、特殊 token 不匹配以及生成长度不足。
-
-## 性能建议
-
-使用混合精度、梯度检查点和批量预处理；在正式训练前先用少量样本完成端到端冒烟测试。
-
-## 资源、许可与引用
-
-模型、Unsloth、SNAC 和数据集的链接见英文部分。使用本项目时请分别遵守上游模型、代码和数据许可，并按上游要求引用。
-
-## 贡献与致谢
-
-欢迎通过 Issue 和 Pull Request 改进脚本与文档。感谢 Orpheus、Unsloth、SNAC 及其开源社区。

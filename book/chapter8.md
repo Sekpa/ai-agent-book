@@ -48,7 +48,7 @@
 
 ### Mid-training 的本质：在目标分布上继续学习
 
-通用预训练不可能覆盖所有语言、领域和能力。如果模型几乎读不懂韩语文档、不了解企业内部协议，或没有形成目标任务所需的代码与长上下文表征，直接教它“如何回答”或只按成败给奖惩都太晚了。Mid-training 沿用预训练的下一个 token 目标，但把数据分布收窄到目标领域，并混入一部分通用保留数据以控制遗忘。它回答的是“模型是否拥有完成任务所需的知识与基本能力”，而不是“回答要长什么样”或“哪条策略奖励最高”。
+通用预训练不可能覆盖所有语言、领域和能力。如果模型几乎读不懂韩语文档、不了解企业内部协议，或没有形成目标任务所需的代码与长上下文表征，那么跳过这一步、直接教它“如何回答”或只按成败给奖惩，是补不上这些缺失的基础能力的。Mid-training 沿用预训练的下一个 token 目标，但把数据分布收窄到目标领域，并混入一部分通用保留数据以控制遗忘。它回答的是“模型是否拥有完成任务所需的知识与基本能力”，而不是“回答要长什么样”或“哪条策略奖励最高”。
 
 Mid-training 与 SFT 的损失函数看起来很像，但数据组织和监督密度不同：前者通常把整段文档、代码或推导都当作学习目标，对大量 token 计算损失；后者把数据组织成输入—输出示范，并通常只在回答 token 上计算损失。因此，用少量问答 SFT 让模型背下一批事实在技术上并非不可能，但它只反复强化少数访问路径，容易记住问法而不形成广泛可调用的知识。需要吸收大规模、彼此关联的领域知识时，应优先考虑 Mid-training；需要知识可更新、可追溯时，则优先考虑 RAG。
 
@@ -840,7 +840,7 @@ Mid-training、SFT 和 RL 不是三种可互换的“微调力度”，而是分
 [^ch8-11]: Li, Bojie, and Noah Shi, “Agents That Sense Physical Time: Urgency, Persistence, and Vigilance as Missing Controls for LLM Agents”, 2026. https://01.me/research/physical-time-agent
 [^ch8-12]: Kulikov, Ilia, et al. *Autodata: An Agentic Data Scientist to Create High Quality Synthetic Data.* arXiv:2606.25996, 2026.
 [^ch8-13]: Sun, Hao, et al. “ZeroSearch: Incentivize the Search Capability of LLMs without Searching”, 2025. arXiv:2505.04588.
-[^ch8-14]: “DreamGym: Scaling Agent Learning via Experience Synthesis”, 2025. arXiv:2511.01824.
+[^ch8-14]: “DreamGym: Scaling Agent Learning via Experience Synthesis”, 2025. arXiv:2511.03773.
 [^ch8-15]: Zhao, Siyan, et al. “Self-Distilled Reasoner: On-Policy Self-Distillation for Large Language Models”, 2026. arXiv:2601.18734.
 [^ch8-16]: Shen, Ziqi, et al. “Purified OPSD: On-Policy Self-Distillation Without Losing How to Think”, 2026. arXiv:2607.02234.
 [^ch8-17]: Tan, Zelin, et al. “SKT: Skill-Use Training at Scale via Verified Synthetic Data Generation”, 2026. arXiv:2608.02287.

@@ -48,7 +48,7 @@
 
 ### Mid-training 的本質：在目標分布上繼續學習
 
-通用預訓練不可能覆蓋所有語言、領域和能力。如果模型幾乎讀不懂某種語言、不了解企業內部協定，或尚未形成目標任務需要的程式碼與長上下文表徵，只教它「怎麼回答」或只用成敗獎勵都太晚。Mid-training 保留預訓練的下一 token 目標，但把資料分布收窄到目標領域，並混入通用保留資料控制遺忘。它回答的是「模型是否具備完成任務所需的知識與基礎能力」，而不是「回答長什麼樣」或「哪種策略獎勵最高」。
+通用預訓練不可能覆蓋所有語言、領域和能力。如果模型幾乎讀不懂某種語言、不了解企業內部協定，或尚未形成目標任務需要的程式碼與長上下文表徵，那麼跳過這一步、直接教它「怎麼回答」或只按成敗給獎懲，是補不上這些缺失的基礎能力的。Mid-training 保留預訓練的下一 token 目標，但把資料分布收窄到目標領域，並混入通用保留資料控制遺忘。它回答的是「模型是否具備完成任務所需的知識與基礎能力」，而不是「回答長什麼樣」或「哪種策略獎勵最高」。
 
 Mid-training 通常把完整文件、程式碼或推導都當作學習目標，在大量 token 上計算損失；SFT 則把資料整理為輸入—輸出示範，通常只在回答 token 上計算損失。小型問答 SFT 可以讓模型記住少量事實，卻容易只強化幾條存取路徑。要吸收龐大、互相關聯且相對穩定的領域知識，優先考慮 Mid-training；需要持續更新、可追溯的知識則應使用 RAG。
 
@@ -840,7 +840,7 @@ Mid-training、SFT 與 RL 不是同一種「微調」的不同強度，而分別
 [^ch8-11]: Li, Bojie, and Noah Shi, 「Agents That Sense Physical Time: Urgency, Persistence, and Vigilance as Missing Controls for LLM Agents」, 2026. https://01.me/research/physical-time-agent
 [^ch8-12]: Kulikov, Ilia, et al. *Autodata: An Agentic Data Scientist to Create High Quality Synthetic Data.* arXiv:2606.25996, 2026.
 [^ch8-13]: Sun, Hao, et al. 「ZeroSearch: Incentivize the Search Capability of LLMs without Searching」, 2025. arXiv:2505.04588.
-[^ch8-14]: 「DreamGym: Scaling Agent Learning via Experience Synthesis」, 2025. arXiv:2511.01824.
+[^ch8-14]: 「DreamGym: Scaling Agent Learning via Experience Synthesis」, 2025. arXiv:2511.03773.
 [^ch8-15]: Zhao, Siyan, et al. 「Self-Distilled Reasoner: On-Policy Self-Distillation for Large Language Models」, 2026. arXiv:2601.18734.
 [^ch8-16]: Shen, Ziqi, et al. 「Purified OPSD: On-Policy Self-Distillation Without Losing How to Think」, 2026. arXiv:2607.02234.
 [^ch8-17]: Tan, Zelin, et al. 「SKT: Skill-Use Training at Scale via Verified Synthetic Data Generation」, 2026. arXiv:2608.02287.

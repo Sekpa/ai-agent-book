@@ -6,6 +6,11 @@ on:
   pull_request:
     paths:
       - ".github/workflows/deploy-pages.yml"
+      - "scripts/**"
+      - "tests/test_homepage_index.py"
+      - "index*.md"
+      - "mkdocs.yml"
+      - "extras/**"
       - "web-astro/**"
       - "book*/**"
       - "README*.md"
@@ -37,6 +42,10 @@ jobs:
           python-version: "3.11"
       - name: Install MkDocs Material
         run: pip install -r requirements-docs.txt
+      - name: Test homepage generation
+        run: |
+          pip install pytest
+          python -m pytest tests/test_homepage_index.py -q
       - name: Assemble docs
         run: bash scripts/build_site.sh
       - name: Build site

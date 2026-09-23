@@ -47,7 +47,7 @@ Pre-training'den sonra model çok bilgilidir ama kullanışlı değildir: ona bi
 
 ### Mid-training'in Özü: Hedef Dağılımda Öğrenmeye Devam Etmek
 
-Genel pre-training her dili, alanı ve yeteneği yeterince kapsayamaz. Model hedef dili neredeyse okuyamıyor, kurum içi protokolleri bilmiyor veya uzun bağlam ve kod için gerekli temsilleri kurmamışsa yalnızca yanıt biçimini öğretmek ya da başarı/başarısızlık ödülü vermek çok geçtir. Mid-training sonraki-token hedefini korur, veriyi hedef alana yoğunlaştırır ve unutmayı denetlemek için genel koruma verisi karıştırır. Sorduğu soru “görev için gereken bilgi ve temel yetenek var mı?”dır; “yanıt nasıl görünmeli?” ya da “hangi politika en yüksek ödülü alır?” değil.
+Genel pre-training her dili, alanı ve yeteneği yeterince kapsayamaz. Model hedef dili neredeyse okuyamıyor, kurum içi protokolleri bilmiyor veya uzun bağlam ve kod için gerekli temsilleri kurmamışsa bu aşamayı atlayıp doğrudan yalnızca yanıt biçimini öğretmek ya da başarı/başarısızlık ödülü vermek, eksik olan bu temel yetenekleri yerine koyamaz. Mid-training sonraki-token hedefini korur, veriyi hedef alana yoğunlaştırır ve unutmayı denetlemek için genel koruma verisi karıştırır. Sorduğu soru “görev için gereken bilgi ve temel yetenek var mı?”dır; “yanıt nasıl görünmeli?” ya da “hangi politika en yüksek ödülü alır?” değil.
 
 Mid-training ile SFT'nin kayıp fonksiyonları çok benzer görünür, ama veri düzeni ve denetim yoğunluğu farklıdır: ilki genellikle bir belgenin, kodun ya da türetmenin tamamını öğrenme hedefi sayar ve çok sayıda token üzerinde kayıp hesaplar; ikincisi veriyi girdi—çıktı gösterimleri hâlinde düzenler ve kaybı çoğunlukla yalnızca yanıt token'larında hesaplar. Bu yüzden az sayıda soru-cevapla SFT yapıp modele bir yığın olguyu ezberletmek teknik olarak imkânsız değildir; ne var ki bu yalnızca birkaç erişim yolunu tekrar tekrar pekiştirir, model soruluş biçimini ezberler ama geniş biçimde çağrılabilir bir bilgi oluşmaz. Büyük ölçekli, birbiriyle ilişkili alan bilgisini soğurmak gerektiğinde önce Mid-training düşünülmeli; bilginin güncellenebilir ve izlenebilir olması gerektiğinde önce RAG.
 
@@ -835,7 +835,7 @@ Bu bölüm, model parametrelerini güncelleyerek Agent'ın sürekli evrimini nas
 [^ch8-11]: Agent'ın zaman duyusuna ilişkin bu post-training karşılaştırması — DPO'nun ve dört RL reçetesinin kendine özgü başarısızlık kalıpları ile On-Policy Distillation'ın atılımı — için bkz. Li, Bojie and Noah Shi, "Agents That Sense Physical Time: Urgency, Persistence, and Vigilance as Missing Controls for LLM Agents", 2026. https://01.me/research/physical-time-agent
 [^ch8-12]: Kulikov, Ilia, et al. *Autodata: An Agentic Data Scientist to Create High Quality Synthetic Data.* arXiv:2606.25996, 2026.
 [^ch8-13]: Sun, Hao, et al. "ZeroSearch: Incentivize the Search Capability of LLMs without Searching", 2025. arXiv:2505.04588.
-[^ch8-14]: "DreamGym: Scaling Agent Learning via Experience Synthesis", 2025. arXiv:2511.01824.
+[^ch8-14]: "DreamGym: Scaling Agent Learning via Experience Synthesis", 2025. arXiv:2511.03773.
 [^ch8-15]: Zhao, Siyan, et al. "Self-Distilled Reasoner: On-Policy Self-Distillation for Large Language Models", 2026. arXiv:2601.18734.
 [^ch8-16]: Shen, Ziqi, et al. "Purified OPSD: On-Policy Self-Distillation Without Losing How to Think", 2026. arXiv:2607.02234.
 [^ch8-17]: Tan, Zelin, et al. "SKT: Skill-Use Training at Scale via Verified Synthetic Data Generation", 2026. arXiv:2608.02287.

@@ -62,3 +62,29 @@ The check automatically discovers languages and named navigation entries from
 
 The `i18n consistency check` GitHub Actions workflow runs this audit whenever
 site configuration, translated books, navigation code, or the catalog changes.
+
+## Homepage chapter cards
+
+The `index.md` and `index.<language>.md` homepages are templates. Keep their
+`<!-- book-chapter-index -->` marker: `scripts/homepage_index.py` replaces it
+with chapter cards during every MkDocs build, including local previews.
+There is no generated index to commit or manually synchronize.
+
+The generator follows the chapter index paths in `mkdocs.yml`'s navigation,
+reads each edition's level-one manuscript heading for the card title, and
+uses its first three level-two headings as a short contents preview. It also
+includes the introduction, afterword, and reference answers. Code fences are
+excluded when reading headings. Language prefixes and filename suffixes come
+from `extra.languages`; translated homepages use relative links that work
+under the GitHub Pages repository subpath.
+
+To change a chapter title or its contents preview, edit the manuscript. To
+change the order of chapters, edit the navigation. Missing source files,
+missing titles, or duplicate chapter paths fail the build. The homepage
+regression tests run in the Pages PR workflow:
+
+```bash
+python -m pytest tests/test_homepage_index.py -q
+bash scripts/build_site.sh
+mkdocs build -d site
+```

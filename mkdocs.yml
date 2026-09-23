@@ -12,6 +12,7 @@ docs_dir: _web
 # Strip Pandoc/LaTeX attributes the source Markdown uses (e.g. `{.unnumbered}`,
 # `{#sec:foo}`, image `{height=55%}`) which Python-Markdown cannot parse.
 hooks:
+  - scripts/homepage_index.py
   # `_web/` is an ignored staging tree, so map each staged page back to its
   # tracked source before the revision-date plugin asks Git for timestamps.
   - scripts/git_revision_dates.py
@@ -23,6 +24,14 @@ hooks:
   # translation catalog from Material's locales + our book navigation labels.
   - scripts/site_i18n.py
   - scripts/mkdocs_pandoc_strip.py
+  # Wrap every standalone book figure in <figure>/<figcaption> so the label the
+  # author already wrote in the image alt text ("图0-2 …", "Figure 0-2: …")
+  # becomes a visible caption on the reading site. Works on the rendered HTML
+  # (on_page_content), which is what lets the experiment figures stay inside
+  # their `> ` blockquote box; the Pandoc strip above is a Markdown-stage hook,
+  # so it has always run by then whatever the order here. See the module
+  # docstring for why this is a build-time hook rather than a browser script.
+  - scripts/mkdocs_figure_captions.py
   - scripts/seo_meta.py
   # Splits the search plugin's single 55 MB search_index.json into one file
   # per book edition. Runs last: MkDocs appends `hooks:` to the plugin list,

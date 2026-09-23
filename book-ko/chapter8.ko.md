@@ -47,7 +47,7 @@ SFT와 RL까지 줄곧 이어지는 핵심 사항이 있습니다. **모델의 �
 
 ### Mid-training의 본질: 대상 분포에서 학습 계속하기
 
-범용 사전 학습은 모든 언어, 도메인, 역량을 충분히 덮을 수 없습니다. 대상 언어를 거의 읽지 못하고 사내 프로토콜을 모르며 긴 문맥이나 코드에 필요한 표현조차 형성하지 못한 모델에는 답변 형식이나 성공·실패 보상만 가르쳐서는 부족합니다. Mid-training은 다음 토큰 예측 목표를 유지하되 데이터 분포를 대상 도메인으로 좁히고 일반 보존 데이터를 섞어 망각을 제어합니다. 이는 “과제를 풀 지식과 기초 역량이 있는가”를 다루며, “어떻게 답할까”나 “어떤 정책의 보상이 높은가”를 다루지 않습니다.
+범용 사전 학습은 모든 언어, 도메인, 역량을 충분히 덮을 수 없습니다. 대상 언어를 거의 읽지 못하고 사내 프로토콜을 모르며 긴 문맥이나 코드에 필요한 표현조차 형성하지 못한 모델에는 이 단계를 건너뛰고 곧바로 답변 형식만 가르치거나 성공·실패 보상만 주어서는 그 빠진 기초 역량을 채울 수 없습니다. Mid-training은 다음 토큰 예측 목표를 유지하되 데이터 분포를 대상 도메인으로 좁히고 일반 보존 데이터를 섞어 망각을 제어합니다. 이는 “과제를 풀 지식과 기초 역량이 있는가”를 다루며, “어떻게 답할까”나 “어떤 정책의 보상이 높은가”를 다루지 않습니다.
 
 Mid-training과 SFT의 손실 함수는 매우 비슷해 보이지만 데이터 구성과 감독 밀도가 다르다. 전자는 보통 문서나 코드, 유도 과정 전체를 학습 목표로 삼아 많은 token에 대해 손실을 계산한다. 후자는 데이터를 입력—출력 시연으로 구성하고 대개 답변 token에서만 손실을 계산한다. 그래서 적은 수의 문답으로 SFT를 돌려 사실 몇 가지를 외우게 하는 것이 기술적으로 불가능하지는 않지만, 그것은 소수의 접근 경로만 반복해서 강화할 뿐이어서 묻는 방식을 기억할 뿐 널리 불러낼 수 있는 지식으로는 잘 자리 잡지 않는다. 대규모로 서로 얽힌 도메인 지식을 흡수시켜야 한다면 Mid-training을 우선하고, 지식이 갱신 가능하고 추적 가능해야 한다면 RAG를 우선한다.
 
@@ -833,7 +833,7 @@ Mid-training과 SFT, RL은 서로 바꿔 쓸 수 있는 세 가지 "파인튜닝
 [^ch8-11]: 에이전트의 시간 감각을 다룬 이 사후 학습 비교, 즉 DPO와 네 가지 RL 방법의 실패 모드 및 온폴리시 증류가 이룬 돌파구는 Li, Bojie and Noah Shi, “Agents That Sense Physical Time: Urgency, Persistence, and Vigilance as Missing Controls for LLM Agents”, 2026에 정리되어 있습니다. https://01.me/research/physical-time-agent
 [^ch8-12]: Kulikov, Ilia, et al. *Autodata: An Agentic Data Scientist to Create High Quality Synthetic Data.* arXiv:2606.25996, 2026.
 [^ch8-13]: Sun, Hao, et al. "ZeroSearch: Incentivize the Search Capability of LLMs without Searching", 2025. arXiv:2505.04588.
-[^ch8-14]: "DreamGym: Scaling Agent Learning via Experience Synthesis", 2025. arXiv:2511.01824.
+[^ch8-14]: "DreamGym: Scaling Agent Learning via Experience Synthesis", 2025. arXiv:2511.03773.
 [^ch8-15]: Zhao, Siyan, et al. "Self-Distilled Reasoner: On-Policy Self-Distillation for Large Language Models", 2026. arXiv:2601.18734.
 [^ch8-16]: Shen, Ziqi, et al. "Purified OPSD: On-Policy Self-Distillation Without Losing How to Think", 2026. arXiv:2607.02234.
 [^ch8-17]: Tan, Zelin, et al. "SKT: Skill-Use Training at Scale via Verified Synthetic Data Generation", 2026. arXiv:2608.02287.

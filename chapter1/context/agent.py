@@ -15,7 +15,8 @@ import pypdf
 from io import BytesIO
 import math
 from datetime import datetime
-from concurrent.futures import TimeoutError
+
+from calc_sandbox import safe_eval
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -261,17 +262,14 @@ class ToolRegistry:
         try:
             logger.info(f"Calculating: {expression}")
             
-            # Sanitize expression - only allow safe mathematical operations
-            allowed_names = {
-                k: v for k, v in math.__dict__.items() if not k.startswith("__")
-            }
-            allowed_names.update({"abs": abs, "round": round, "min": min, "max": max})
-            
-            # Replace common operations for clarity
+            # Sanitize the syntax tree, not just the builtins dict: an empty
+            # __builtins__ still permits attribute access, so the old eval()
+            # sandbox was escapable via ().__class__ ... . The AST whitelist
+            # in calc_sandbox.py rejects those node shapes before the
+            # interpreter sees them. Keep the caret-to-power rewrite so
+            # existing prompts are unchanged.
             expression = expression.replace("^", "**")
-            
-            # Evaluate the expression
-            result = eval(expression, {"__builtins__": {}}, allowed_names)
+            result = safe_eval(expression)
             
             return {
                 "expression": expression,
@@ -904,8 +902,12 @@ Important: When you have gathered all necessary information and computed the fin
                 # Note: We do NOT modify the system prompt anymore.
                 # The context is already built into the conversation through tool history
                     
-            except TimeoutError:
-                logger.error("Request timed out after 60 seconds")
+            # The OpenAI SDK raises APITimeoutError (not the builtin
+            # TimeoutError) when the request exceeds the configured 180s
+            # timeout below; catch it explicitly so timeouts are reported
+            # as timeouts instead of falling through to the generic path.
+            except (openai.APITimeoutError, requests.exceptions.Timeout) as exc:
+                logger.error(f"Request timed out after 180 seconds: {exc}")
                 return {
                     "error": "Request timed out. The model is taking too long to respond. Try a simpler task or different provider.",
                     "trajectory": self.trajectory,

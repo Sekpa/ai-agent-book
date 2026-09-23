@@ -47,7 +47,7 @@
 
 ### Mid-training の本質：対象分布で学習を続ける
 
-汎用の事前学習だけでは、あらゆる言語、専門分野、能力を十分に網羅できません。対象言語をほとんど読めず、社内プロトコルを知らず、長文やコードに必要な表現すら形成されていないモデルに、回答形式だけを教えたり成否だけを報酬として与えたりしても遅すぎます。Mid-training は次 token 予測を保ったままデータ分布を対象領域へ寄せ、一般データも混ぜて忘却を抑えます。問うのは「タスクを解く知識と基礎能力があるか」であり、「どう答えるか」や「どの方策が高報酬か」ではありません。
+汎用の事前学習だけでは、あらゆる言語、専門分野、能力を十分に網羅できません。対象言語をほとんど読めず、社内プロトコルを知らず、長文やコードに必要な表現すら形成されていないモデルに対して、この段階を飛ばして回答形式だけを教えたり成否だけを報酬として与えたりしても、欠けている基礎能力は補えません。Mid-training は次 token 予測を保ったままデータ分布を対象領域へ寄せ、一般データも混ぜて忘却を抑えます。問うのは「タスクを解く知識と基礎能力があるか」であり、「どう答えるか」や「どの方策が高報酬か」ではありません。
 
 Mid-training と SFT の損失関数はよく似て見えますが、データの組み立て方と監督の密度が異なります。前者は通常、文書やコード、導出の全体を学習目標とし、大量の token に対して損失を計算します。後者はデータを入力—出力の実演として組み立て、通常は回答部分の token にのみ損失を計算します。したがって、少量の問答で SFT を行い一群の事実を暗記させることは技術的に不可能ではありませんが、それはごく少数のアクセス経路を繰り返し強化するだけであり、問い方を覚えても広く呼び出せる知識にはなりにくいのです。大規模で互いに関連し合う領域知識を吸収させたいときは Mid-training を優先し、知識を更新可能・追跡可能にしたいときは RAG を優先します。
 
@@ -833,7 +833,7 @@ Mid-training、SFT、RL は互換的な三段階の「ファインチューニ�
 [^ch8-11]: この Agent の時間感覚のポストトレーニング対照――DPO と 4 種類の RL それぞれの失敗モード、および On-Policy Distillation のブレイクスルー――は Li, Bojie and Noah Shi, “Agents That Sense Physical Time: Urgency, Persistence, and Vigilance as Missing Controls for LLM Agents” , 2026. https://01.me/research/physical-time-agent を参照。
 [^ch8-12]: Kulikov, Ilia, et al. *Autodata: An Agentic Data Scientist to Create High Quality Synthetic Data.* arXiv:2606.25996, 2026.
 [^ch8-13]: Sun, Hao, et al. *ZeroSearch: Incentivize the Search Capability of LLMs without Searching.* arXiv:2505.04588, 2025.
-[^ch8-14]: *DreamGym: Scaling Agent Learning via Experience Synthesis.* arXiv:2511.01824, 2025.
+[^ch8-14]: *DreamGym: Scaling Agent Learning via Experience Synthesis.* arXiv:2511.03773, 2025.
 [^ch8-15]: Zhao, Siyan, et al. *Self-Distilled Reasoner: On-Policy Self-Distillation for Large Language Models.* arXiv:2601.18734, 2026.
 [^ch8-16]: Shen, Ziqi, et al. *Purified OPSD: On-Policy Self-Distillation Without Losing How to Think.* arXiv:2607.02234, 2026.
 [^ch8-17]: Tan, Zelin, et al. *SKT: Skill-Use Training at Scale via Verified Synthetic Data Generation.* arXiv:2608.02287, 2026.

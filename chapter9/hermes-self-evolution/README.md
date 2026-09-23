@@ -1,9 +1,21 @@
 # 实验 9-8：把这本书交给 Hermes：它能升级自己吗？
 
+Agent 读完工程知识，能否发现自身实现中的不足，并把建议变成可验证变化？本实验将阅读、源码分析、修改与后续评估连接起来。
+
+[English](#english-summary)
+
+建议按以下顺序阅读：[理解问题与方法](#learning-0) → [准备环境与输入](#learning-1) → [按照步骤完成实验](#learning-2) → [分析结果与形成判断](#learning-3)。
+
+<a id="learning-0"></a>
+
+## 理解问题与方法
+
+开放式选题允许 Agent 自己提出改进方向，但判断价值仍需要外部依据。补丁可运行只是第一步，还要用下游任务比较修改前后的行为，区分增加功能与改善能力。
+
 如果 Agent 读到一本讲“Agent 如何进化”的书，它能不能回头看看自己，并真的学会一项新本领？
 我们没有让 Hermes 只写一份读后感，而是把整本书和它自己的源码一起交给它，让它边读边改自己。
 
-## 我们做了什么
+### 我们做了什么
 
 这个实验思路由读者 Grace 贡献。核心做法不是给 Hermes 一张问题清单，而是让
 [Hermes](https://github.com/NousResearch/hermes-agent) 读完本书十章，再回到自己的代码里寻找
@@ -14,7 +26,7 @@ Hermes 根据书和源码自行判断。
 
 > **阅读 → 对照 → 选题 → 修改 → 审查 → 学习 → 再修改**
 
-## Hermes 真的做了什么
+### Hermes 真的做了什么
 
 Hermes 读完十章并检查自身实现后，主动发现：虽然系统会保存运行轨迹，但这些记录缺少可直接供后续
 学习使用的结构化证据。它决定从真实工具结果中提取保守的学习信号，让离线评价与后续改进不必只依赖
@@ -23,42 +35,32 @@ Hermes 读完十章并检查自身实现后，主动发现：虽然系统会保�
 关键是，它不只提出建议。Hermes 亲手修改了自己的轨迹处理与保存路径、补充测试、运行验证，并留下
 一份可应用的补丁。这让“读书后获得启发”变成了“读书后改变自己”。
 
-## Reviewer 如何推动它继续改
+### Reviewer 如何推动它继续改
 
 第一版没有过关。独立 Reviewer 发现它的测试数据与真实轨迹格式不一致；修正后，新的 Reviewer 又
 发现部分保存路径没有采用同一证据契约；第三轮继续发现重复计数和遗漏路径。每次反馈都交还给同一个
 Hermes 会话，由它重新读代码、修正并再试。第四位全新 Reviewer 最终接受这份修改提案。Reviewer 的拒绝不是
 实验终点，而是 Hermes 下一轮学习的输入。
 
-## 这个实验证明了什么
+<a id="learning-1"></a>
 
-这次运行完成了一个真实的自我更新闭环：Hermes 在没有改进清单的情况下读书、检查自己、自主选题并
-实现改进，又根据独立审查反复纠错，直到通过验收。最终修改提案通过 6 个新增行为测试和 38 个相关回归测试。
+## 准备环境与输入
 
-不过，“成功更新自己”和“所有任务表现都变强”是两回事。要证明后者，还需要在相同任务和模型下，
-分别开关新能力做消融实验。本实验诚实地停在前一个结论：**Hermes 已经学会根据书和反馈修改自己，
-但这项修改对下游任务的收益仍要另行测量。**
+本项目包含多条路径。先选定要观察的流程，再阅读对应的依赖和输入要求。下文保留了各条路径的完整配置，运行时应保持模型、文件路径与所选入口一致。
 
-下面保留完整证据，方便核对或复现。Canonical 开放式运行固定在 Hermes commit
-`85c8956ec7f2b4607509980794995e1c5e21e292`，使用 `openai/gpt-5.6-luna`，补丁尚未合入上游。
+<a id="learning-2"></a>
 
-- [Evidence manifest](validation/exp9-8-hermes-gpt56luna-autonomous-20260802-v2/manifest.json)
-- [Hermes 自述报告](validation/exp9-8-hermes-gpt56luna-autonomous-20260802-v2/BOOK_SELF_EVOLUTION_REPORT.md)
-- [最终修改补丁](validation/exp9-8-hermes-gpt56luna-autonomous-20260802-v2/hermes-self-evolution.patch)
-- 原始主运行、三轮 proposer 修正与四次 fresh acceptance review transcript 位于
-  [`raw/`](validation/exp9-8-hermes-gpt56luna-autonomous-20260802-v2/raw/)
+## 按照步骤完成实验
 
-证据边界：这次运行证明了 Agent 能阅读、审计、生成代码提案并根据外部审查纠错；它**没有**
-证明新的轨迹学习信号提升了下游任务成功率。Hermes 在报告中设计了固定任务、固定模型、逐项关闭功能的
-消融 campaign，但本次没有执行，因此不能把“完成自我更新闭环”写成“下游任务已经变强”。
+先阅读给 Agent 的任务和一次候选改进说明，检查它引用了哪些书中概念与代码事实。按下文准备独立源码副本后运行，再跟踪审查意见怎样进入下一轮修改。
 
-## 复现
+### 复现
 
 要求：Git、`uv`、Python 3.12，以及 `OPENROUTER_API_KEY`。Hermes 使用自己的隔离环境，
 不依赖根项目的 Chapter 8 extra。
 
 ```bash
-cd chapter8/hermes-self-evolution
+cd chapter9/hermes-self-evolution
 cp env.example .env
 # 把真实 OPENROUTER_API_KEY 放入当前 shell 或未跟踪的 .env；不要提交。
 set -a && source .env && set +a
@@ -88,6 +90,38 @@ home 重跑。`finalize_evidence.py` 用于 canonical 证据收口，包括终�
 python -m py_compile run_experiment_9_8.py run_review_pass.py run_acceptance_review.py finalize_evidence.py
 python run_experiment_9_8.py --help
 ```
+
+<a id="learning-3"></a>
+
+## 分析结果与形成判断
+
+不要把读后总结当作能力提升。应检查真实代码变化、测试与下游对照；删除候选功能的消融比较有助于判断收益是否来自该改动。
+
+### 这个实验证明了什么
+
+这次运行完成了一个真实的自我更新闭环：Hermes 在没有改进清单的情况下读书、检查自己、自主选题并
+实现改进，又根据独立审查反复纠错，直到通过验收。最终修改提案通过 6 个新增行为测试和 38 个相关回归测试。
+
+不过，“成功更新自己”和“所有任务表现都变强”是两回事。要证明后者，还需要在相同任务和模型下，
+分别开关新能力做消融实验。本实验诚实地停在前一个结论：**Hermes 已经学会根据书和反馈修改自己，
+但这项修改对下游任务的收益仍要另行测量。**
+
+下面保留完整证据，方便核对或复现。Canonical 开放式运行固定在 Hermes commit
+`85c8956ec7f2b4607509980794995e1c5e21e292`，使用 `openai/gpt-5.6-luna`，补丁尚未合入上游。
+
+- [Evidence manifest](validation/exp9-8-hermes-gpt56luna-autonomous-20260802-v2/manifest.json)
+- [Hermes 自述报告](validation/exp9-8-hermes-gpt56luna-autonomous-20260802-v2/BOOK_SELF_EVOLUTION_REPORT.md)
+- [最终修改补丁](validation/exp9-8-hermes-gpt56luna-autonomous-20260802-v2/hermes-self-evolution.patch)
+- 原始主运行、三轮 proposer 修正与四次 fresh acceptance review transcript 位于
+  [`raw/`](validation/exp9-8-hermes-gpt56luna-autonomous-20260802-v2/raw/)
+
+证据边界：这次运行证明了 Agent 能阅读、审计、生成代码提案并根据外部审查纠错；它**没有**
+证明新的轨迹学习信号提升了下游任务成功率。Hermes 在报告中设计了固定任务、固定模型、逐项关闭功能的
+消融 campaign，但本次没有执行，因此不能把“完成自我更新闭环”写成“下游任务已经变强”。
+
+### 检查自己的解释
+
+Agent 自己提出的改进目标，应该由谁定义通过条件，才能避免它只挑容易证明成功的目标？
 
 ## English summary
 
